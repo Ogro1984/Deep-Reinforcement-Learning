@@ -35,6 +35,7 @@ class StockTradingEnv(gym.Env):
         self.shares_held = 0
         self.net_worth = 10000
         self.initial_net_worth = 10000
+        self.action_history = []
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -42,6 +43,7 @@ class StockTradingEnv(gym.Env):
         self.balance = 10000
         self.shares_held = 0
         self.net_worth = 10000
+        self.action_history = []
         return self._next_observation().astype(np.float32), {}
 
     def _next_observation(self):
@@ -50,6 +52,7 @@ class StockTradingEnv(gym.Env):
     def step(self, action):
         # Action: 0 = Hold, 1 = Buy, 2 = Sell
         current_price = self.df.iloc[self.current_step]['Close']
+        self.action_history.append((self.current_step, action, current_price))
         if action == 1:  # Buy
             self.shares_held += self.balance // current_price
             self.balance %= current_price
@@ -85,12 +88,12 @@ check_env(env)
 # Vectorize environment
 vec_env = DummyVecEnv([lambda: env])
 
-# Train model
-model = PPO('MlpPolicy', vec_env, verbose=1)
-model.learn(total_timesteps=10000)
+# # Train model
+# model = PPO('MlpPolicy', vec_env, verbose=1)
+# model.learn(total_timesteps=10000)
 
-# Save model
-model.save("ppo_stock_trading")
+# # Save model
+# model.save("ppo_stock_trading")
 
 # Load model
 model = PPO.load("ppo_stock_trading")
@@ -110,5 +113,17 @@ plt.plot(net_worths, label='Net Worth')
 plt.xlabel('Time Step')
 plt.ylabel('Net Worth')
 plt.title('Trading Simulation')
+plt.legend()
+plt.show()
+
+# Plot action prices
+actions = pd.DataFrame(env.action_history, columns=['Step', 'Action', 'Price'])
+plt.figure(figsize=(10, 5))
+plt.plot(df['Close'], label='Close Price')
+plt.scatter(actions[actions['Action'] == 1]['Step'], actions[actions['Action'] == 1]['Price'], color='green', label='Buy', marker='^', alpha=1)
+plt.scatter(actions[actions['Action'] == 2]['Step'], actions[actions['Action'] == 2]['Price'], color='red', label='Sell', marker='v', alpha=1)
+plt.xlabel('Time Step')
+plt.ylabel('Price')
+plt.title('Trading Actions')
 plt.legend()
 plt.show()
