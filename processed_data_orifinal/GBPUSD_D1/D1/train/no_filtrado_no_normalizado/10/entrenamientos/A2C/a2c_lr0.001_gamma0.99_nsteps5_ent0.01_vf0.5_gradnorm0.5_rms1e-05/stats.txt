@@ -1,0 +1,8 @@
+Tasa de Aprendizaje: 0.001
+Gamma: 0.99
+N Pasos: 5
+Ent Coef: 0.01
+VF Coef: 0.5
+Max Grad Norm: 0.5
+RMS Prop Eps: 1e-05
+Patrimonio Neto Final: 9981.789947300027

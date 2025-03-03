@@ -1,0 +1,6 @@
+Tasa de Aprendizaje: 0.0003
+Gamma: 0.99
+Buffer Size: 100000
+Batch Size: 256
+Ent Coef: auto
+Tau: 0.005
