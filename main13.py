@@ -205,11 +205,11 @@ def train_model(train_data_path):
 
     # Definir rangos de hiperparámetros
     learning_rates = [0.0001, 0.0007, 0.001]  # Tasas de aprendizaje
-    learning_rates = [0.0001]  # Tasas de aprendizaje
+    
     gammas = [0.95, 0.99]  # Factores de descuento
-    gammas = [0.95]  # Factores de descuento
+   
     n_steps_list = [5, 10]  # Número de pasos antes de actualizar el modelo
-    n_steps_list = [7]  # Número de pasos antes de actualizar el modelo
+    
     ent_coefs = [0.01]  # Coeficientes de la pérdida de entropía
     vf_coefs = [0.5]  # Coeficientes de la pérdida de la función de valor
     max_grad_norms = [0.5]  # Valores máximos para la normalización del gradiente
@@ -639,18 +639,12 @@ def train_ppo_model(train_data_path, base_path):
 
     # Definir rangos de hiperparámetros
     learning_rates = [0.0001, 0.0007, 0.001]  # Tasas de aprendizaje
-    learning_rates = [0.0007]  # Tasas de aprendizaje
     gammas = [0.95, 0.99]  # Factores de descuento
-    gammas = [0.99]  # Factores de descuento
-    n_steps_list = [5, 10]  # Número de pasos antes de actualizar el modelo
     n_steps_list = [64]  # Número de pasos antes de actualizar el modelo
-
     ent_coefs = [0.01]  # Coeficientes de la pérdida de entropía
     vf_coefs = [0.5]  # Coeficientes de la pérdida de la función de valor
     max_grad_norms = [0.5]  # Valores máximos para la normalización del gradiente
-    gae_lambdas = [0.9, 0.95]  # GAE lambda parameter
     gae_lambdas = [0.95]  # GAE lambda parameter
-    batch_sizes = [32, 64]  # Batch size
     batch_sizes = [64]  # Batch size
 
     # Extract information from the training data path
@@ -998,10 +992,10 @@ def train_sac_model(train_data_path, base_path):
     # Definir rangos de hiperparámetros
     learning_rates = [0.0003]  # Default learning rate
     gammas = [0.99]  # Default gamma
-    buffer_sizes = [100000]  # Default buffer size
+    buffer_sizes = [10000]  # Default buffer size
     batch_sizes = [256]  # Default batch size
     ent_coefs = ['auto']  # Default entropy coefficient
-    tau = [0.005]  # Default tau
+    tau = [0.005,0.01]  # Default tau
 
 
     # Extract information from the training data path

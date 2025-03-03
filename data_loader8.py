@@ -416,9 +416,9 @@ def process_all_fx_data(folder_path='fx_data'):
                 nombre_fichero = filename.replace('.csv', '')
                 
                 if '15min' in filename:
-                    calcular_diferencia_promedio_historico(df_diario, 10, 20, 150, nombre_fichero, 0.5)
+                    calcular_diferencia_promedio_historico(df_diario, 130,20, 150, nombre_fichero, 0.6)
                 else:
-                    calcular_diferencia_promedio_historico(df_diario, 10, 20, 150, nombre_fichero, 0.5)
+                    calcular_diferencia_promedio_historico(df_diario, 130, 20, 150, nombre_fichero, 0.6)
                 
                 print(f"Dataset {filename} processed successfully.")
             except Exception as e:
