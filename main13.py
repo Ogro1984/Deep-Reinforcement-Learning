@@ -645,16 +645,7 @@ def train_ppo_model(train_data_path, base_path):
     # Vectorizar el entorno de entrenamiento
     vec_env = DummyVecEnv([lambda: train_env])
 
-    # Definir rangos de hiperparámetros
-    learning_rates = [0.0001, 0.0007, 0.001]  # Tasas de aprendizaje
-    gammas = [0.95, 0.99]  # Factores de descuento
-    n_steps_list = [64]  # Número de pasos antes de actualizar el modelo
-    ent_coefs = [0.01]  # Coeficientes de la pérdida de entropía
-    vf_coefs = [0.5]  # Coeficientes de la pérdida de la función de valor
-    max_grad_norms = [0.5]  # Valores máximos para la normalización del gradiente
-    gae_lambdas = [0.95]  # GAE lambda parameter
-    batch_sizes = [64]  # Batch size
-
+  
     # Definir rangos de hiperparámetros
     learning_rates = [0.00007]  # Tasas de aprendizaje
     gammas = [0.99]  # Factores de descuento
@@ -665,6 +656,16 @@ def train_ppo_model(train_data_path, base_path):
     gae_lambdas = [0.95]  # GAE lambda parameter
     batch_sizes = [128]  # Batch size
 
+    
+    # Definir rangos de hiperparámetros para PPO
+    learning_rates = [0.0001, 0.0003, 0.0007, 0.001]  # Tasas de aprendizaje
+    gammas = [0.95, 0.97, 0.99]  # Factores de descuento
+    n_steps_list = [64, 128, 256]  # Número de pasos antes de actualizar el modelo
+    ent_coefs = [0.01, 0.02, 0.05]  # Coeficientes de la pérdida de entropía
+    vf_coefs = [0.5, 0.7, 0.9]  # Coeficientes de la pérdida de la función de valor
+    max_grad_norms = [0.5, 1.0, 1.5]  # Valores máximos para la normalización del gradiente
+    gae_lambdas = [0.9, 0.95, 0.99]  # GAE lambda parameter
+    batch_sizes = [64, 128, 256]  # Batch size
 
     # Extract information from the training data path
     train_data_filename = os.path.basename(train_data_path)
@@ -1409,7 +1410,7 @@ def process_data(base_path):
         base_path (str): Ruta base donde se encuentran las carpetas de datos.
     """
    #process_data_sac_training_data(base_path)
-   # process_a2c_ppo_training_data(base_path)
+    process_a2c_ppo_training_data(base_path)
    # process_a2c_testing_data(base_path)
    # process_ppo_testing_data(base_path)
    # process_sac_testing_data(base_path)
