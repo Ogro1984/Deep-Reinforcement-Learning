@@ -186,7 +186,7 @@ class StockTradingEnvSAC(gym.Env):
 
 
 # Función para entrenar el modelo A2C
-def train_model(train_data_path):
+def train_a2c_model(train_data_path):
     """
     Entrena un modelo A2C con los datos de entrenamiento proporcionados.
 
@@ -203,19 +203,7 @@ def train_model(train_data_path):
     # Vectorizar el entorno de entrenamiento
     vec_env = DummyVecEnv([lambda: train_env])
 
-    # Definir rangos de hiperparámetros
-    learning_rates = [0.0001, 0.0007, 0.001]  # Tasas de aprendizaje
-    
-    gammas = [0.95, 0.99]  # Factores de descuento
    
-    n_steps_list = [5, 10]  # Número de pasos antes de actualizar el modelo
-    
-    ent_coefs = [0.01]  # Coeficientes de la pérdida de entropía
-    vf_coefs = [0.5]  # Coeficientes de la pérdida de la función de valor
-    max_grad_norms = [0.5]  # Valores máximos para la normalización del gradiente
-    rms_prop_epss = [1e-5]  # Epsilon para RMSProp
-
-
     # Definir rangos de hiperparámetros
     learning_rates = [0.0007]  # Tasas de aprendizaje
     gammas = [0.99]  # Factores de descuento
@@ -225,7 +213,14 @@ def train_model(train_data_path):
     max_grad_norms = [0.5]  # Valores máximos para la normalización del gradiente
     rms_prop_epss = [1e-5]  # Epsilon para RMSProp
 
-
+    # Definir rangos de hiperparámetros
+    learning_rates = [0.0001, 0.0003, 0.0007, 0.001]  # Tasas de aprendizaje
+    gammas = [0.95, 0.97, 0.99]  # Factores de descuento
+    n_steps_list = [5, 10, 20]  # Número de pasos antes de actualizar el modelo
+    ent_coefs = [0.0, 0.01, 0.05]  # Coeficientes de la pérdida de entropía
+    vf_coefs = [0.5, 0.7, 0.9]  # Coeficientes de la pérdida de la función de valor
+    max_grad_norms = [0.5, 1.0, 1.5]  # Valores máximos para la normalización del gradiente
+    rms_prop_epss = [1e-5, 1e-6, 1e-7]  # Epsilon para RMSProp
 
 
     # Extract information from the training data path
@@ -309,7 +304,7 @@ def train_model(train_data_path):
 
     print(f"Estadísticas de entrenamiento guardadas en: {csv_file}")
 
-def test_model(model_path, test_data_path):
+def test_a2c_model(model_path, test_data_path):
     """
     Prueba un modelo A2C con los datos de prueba proporcionados y genera un gráfico de las acciones tomadas.
 
@@ -412,7 +407,7 @@ def test_model(model_path, test_data_path):
     plt.savefig(os.path.dirname(model_path) + "/net_worth_test.png")
     plt.close()
 
-def process_training_data(base_path):
+def process_a2c_ppo_training_data(base_path):
     """
     Procesa los datos de entrenamiento en la estructura de carpetas especificada.
 
@@ -464,7 +459,7 @@ def process_training_data(base_path):
                         for filename in os.listdir(window_path):
                             if filename.endswith(".csv"):
                                 train_data_path = os.path.join(window_path, filename)
-                                train_model(train_data_path)
+                                train_a2c_model(train_data_path)
                                 train_ppo_model(train_data_path, base_path)  # Train PPO as well
 
                 # Si "no_filtrado" no está en la ruta, ir a la subcarpeta "wavelet"
@@ -487,10 +482,10 @@ def process_training_data(base_path):
                         for filename in os.listdir(window_path):
                             if filename.endswith(".csv"):
                                 train_data_path = os.path.join(window_path, filename)
-                                train_model(train_data_path)
+                                train_a2c_model(train_data_path)
                                 train_ppo_model(train_data_path, base_path)  # Train PPO as well
 
-def process_testing_data(base_path):
+def process_a2c_testing_data(base_path):
     """
     Procesa los datos de prueba en la estructura de carpetas especificada.
 
@@ -572,7 +567,7 @@ def process_testing_data(base_path):
                                                 print(f"Model not found: {model_path}")
                                                 continue
 
-                                            test_model(model_path, test_data_path)
+                                            test_a2c_model(model_path, test_data_path)
 
                 # Si "no_filtrado" no está en la ruta, ir a la subcarpeta "wavelet"
                 else:
@@ -629,7 +624,7 @@ def process_testing_data(base_path):
                                                 print(f"Model not found: {model_path}")
                                                 continue
 
-                                            test_model(model_path, test_data_path)
+                                            test_a2c_model(model_path, test_data_path)
 
 
 def train_ppo_model(train_data_path, base_path):
@@ -1330,7 +1325,7 @@ def process_sac_testing_data(base_path):
 
                                     test_sac_model(model_path, test_data_path)
 
-def process_data_sac_training_data(base_path):
+def process_sac_training_data(base_path):
     """
     Procesa los datos de entrenamiento para SAC en la estructura de carpetas especificada.
 
@@ -1414,12 +1409,10 @@ def process_data(base_path):
         base_path (str): Ruta base donde se encuentran las carpetas de datos.
     """
    #process_data_sac_training_data(base_path)
-    process_training_data(base_path)
-    
-    process_testing_data(base_path)
-    #process_data_ppo_training_data(base_path)
-    process_ppo_testing_data(base_path)
-    process_sac_testing_data(base_path)
+   # process_a2c_ppo_training_data(base_path)
+   # process_a2c_testing_data(base_path)
+   # process_ppo_testing_data(base_path)
+   # process_sac_testing_data(base_path)
     
     
 # Ejemplo de uso
