@@ -215,6 +215,19 @@ def train_model(train_data_path):
     max_grad_norms = [0.5]  # Valores máximos para la normalización del gradiente
     rms_prop_epss = [1e-5]  # Epsilon para RMSProp
 
+
+    # Definir rangos de hiperparámetros
+    learning_rates = [0.0007]  # Tasas de aprendizaje
+    gammas = [0.99]  # Factores de descuento
+    n_steps_list = [5]  # Número de pasos antes de actualizar el modelo
+    ent_coefs = [0.0]  # Coeficientes de la pérdida de entropía
+    vf_coefs = [0.5]  # Coeficientes de la pérdida de la función de valor
+    max_grad_norms = [0.5]  # Valores máximos para la normalización del gradiente
+    rms_prop_epss = [1e-5]  # Epsilon para RMSProp
+
+
+
+
     # Extract information from the training data path
     train_data_filename = os.path.basename(train_data_path)
     is_filtered = "no_filtrado" not in train_data_path
@@ -646,6 +659,17 @@ def train_ppo_model(train_data_path, base_path):
     max_grad_norms = [0.5]  # Valores máximos para la normalización del gradiente
     gae_lambdas = [0.95]  # GAE lambda parameter
     batch_sizes = [64]  # Batch size
+
+    # Definir rangos de hiperparámetros
+    learning_rates = [0.00007]  # Tasas de aprendizaje
+    gammas = [0.99]  # Factores de descuento
+    n_steps_list = [128]  # Número de pasos antes de actualizar el modelo
+    ent_coefs = [0.01]  # Coeficientes de la pérdida de entropía
+    vf_coefs = [0.5]  # Coeficientes de la pérdida de la función de valor
+    max_grad_norms = [0.5]  # Valores máximos para la normalización del gradiente
+    gae_lambdas = [0.95]  # GAE lambda parameter
+    batch_sizes = [128]  # Batch size
+
 
     # Extract information from the training data path
     train_data_filename = os.path.basename(train_data_path)
@@ -1389,14 +1413,14 @@ def process_data(base_path):
     Args:
         base_path (str): Ruta base donde se encuentran las carpetas de datos.
     """
-    process_data_sac_training_data(base_path)
-    process_sac_testing_data(base_path)
+   #process_data_sac_training_data(base_path)
     process_training_data(base_path)
     
     process_testing_data(base_path)
     #process_data_ppo_training_data(base_path)
     process_ppo_testing_data(base_path)
-
+    process_sac_testing_data(base_path)
+    
     
 # Ejemplo de uso
 # Reemplazar 'ruta/a/tus/datos_de_entrenamiento.csv' y 'ruta/a/tus/datos_de_prueba.csv'
