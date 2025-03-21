@@ -1410,9 +1410,9 @@ def process_data(base_path):
         base_path (str): Ruta base donde se encuentran las carpetas de datos.
     """
    #process_data_sac_training_data(base_path)
-    process_a2c_ppo_training_data(base_path)
-   # process_a2c_testing_data(base_path)
-   # process_ppo_testing_data(base_path)
+    #process_a2c_ppo_training_data(base_path)
+    #process_a2c_testing_data(base_path)
+    process_ppo_testing_data(base_path)
    # process_sac_testing_data(base_path)
     
     
