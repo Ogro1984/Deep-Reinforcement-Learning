@@ -1,0 +1,8 @@
+Tasa de Aprendizaje: 0.0001
+Gamma: 0.99
+N Pasos: 64
+Ent Coef: 0.01
+VF Coef: 0.5
+Max Grad Norm: 0.5
+GAE Lambda: 0.95
+Batch Size: 128

@@ -7,11 +7,46 @@ from gymnasium.spaces import Discrete, Box  # Use gymnasium spaces
 from stable_baselines3 import A2C
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3 import SAC
 from gymnasium import spaces
 import re
 import csv
+
+# Custom callback to print training statistics
+class PrintTrainingStatisticsCallback(BaseCallback):
+    def __init__(self, verbose=0):
+        super(PrintTrainingStatisticsCallback, self).__init__(verbose)
+
+    def _on_step(self) -> bool:
+        if self.n_calls % 100 == 0:  # Print every 100 steps
+            # print(f"Step: {self.n_calls}")
+            # print(f"  Loss: {self.model.logger.name_to_value['train/loss']}")
+            # print(f"  Value Loss: {self.model.logger.name_to_value['train/value_loss']}")
+            # print(f"  Policy Loss: {self.model.logger.name_to_value['train/policy_loss']}")
+            # print(f"  Entropy: {self.model.logger.name_to_value['train/entropy_loss']}")
+             stats = {
+                "Step": self.n_calls,
+                "Loss": self.model.logger.name_to_value['train/loss'],
+                "Value Loss": self.model.logger.name_to_value['train/value_loss'],
+                "Policy Loss": self.model.logger.name_to_value['train/policy_loss'],
+                "Entropy": self.model.logger.name_to_value['train/entropy_loss']
+            }
+            
+            
+             with open(self.csv_file, mode='a', newline='') as f:
+                writer = csv.writer(f)
+                if not self.file_exists:
+                    writer.writerow(stats.keys())
+                    self.file_exists = True
+                writer.writerow(stats.values())                                
+
+        
+        
+        return True
+
+
 # Entorno personalizado para el trading de acciones
 class StockTradingEnv(gym.Env):
     def __init__(self, df, initial_balance=10000, shares_per_step=10, commission=0.001, render_mode=None):
@@ -26,16 +61,20 @@ class StockTradingEnv(gym.Env):
         self.current_step = 0  # Paso actual en el entorno
         self.reward_range = (-float('inf'), float('inf'))  # Rango de recompensas
         self.action_space = Discrete(3)  # Espacio de acciones: 0: hold, 1: buy, 2: sell
-        self.observation_space = Box(low=0, high=1, shape=(5,), dtype=np.float32)  # Espacio de observaciones
+        #self.observation_space = Box(low=0, high=1, shape=(5,), dtype=np.float32)  # Espacio de observaciones
         self.render_mode = render_mode  # Modo de renderización
         self.action_history = []  # Historial de acciones
-        self.observation_space = Box(low=0, high=1, shape=(5,), dtype=np.float32)
+        self.observation_space = Box(low=0, high=1, shape=(9,), dtype=np.float32)
 
     # Función para generar la siguiente observación
     def _next_observation(self):
         frame = np.array([
-            self.df.iloc[self.current_step]['Close'] / 1000,  # Precio de cierre escalado
-            self.df.iloc[self.current_step]['Volume'] / 1000000,  # Volumen escalado
+            self.df.iloc[self.current_step]['Close'],  # Precio de cierre escalado
+            self.df.iloc[self.current_step]['Volume'],# Volumen escalado
+            self.df.iloc[self.current_step]['Dif_a_la_Media_200'],  # Precio de cierre escalado
+            self.df.iloc[self.current_step]['Cambio_Porcentual'],
+            self.df.iloc[self.current_step]['Close_Filtrado_Wavelet'],
+            self.df.iloc[self.current_step]['Volumen_Relativo_200'],
             self.balance / self.initial_balance,  # Balance relativo al balance inicial
             self.shares_held / 100,  # Acciones en posesión escaladas
             self.net_worth / self.initial_balance,  # Patrimonio neto relativo al balance inicial
@@ -415,75 +454,9 @@ def process_a2c_ppo_training_data(base_path):
         base_path (str): Ruta base donde se encuentran las carpetas de datos de entrenamiento.
     """
     # Iterar a través de las carpetas de divisas
-    for currency_pair in os.listdir(base_path):
-        currency_path = os.path.join(base_path, currency_pair)
-
-        # Verificar si es una carpeta
-        if not os.path.isdir(currency_path):
-            continue
-
-        # Iterar a través de las carpetas de timeframe
-        for timeframe in os.listdir(currency_path):
-            timeframe_path = os.path.join(currency_path, timeframe)
-
-            # Verificar si es una carpeta
-            if not os.path.isdir(timeframe_path):
-                continue
-
-            # Ir a la carpeta de datos de entrenamiento
-            data_path = os.path.join(timeframe_path, "train")
-
-            # Verificar si la carpeta existe
-            if not os.path.exists(data_path):
-                continue
-
-            # Iterar a través de las carpetas de filtrado
-            for filter_type in os.listdir(data_path):
-                filter_path = os.path.join(data_path, filter_type)
-
-                # Verificar si es una carpeta
-                if not os.path.isdir(filter_path):
-                    continue
-
-                # Si la palabra "no_filtrado" está en la ruta, la iteración debe comenzar en las subcarpetas
-                if "no_filtrado" in filter_path:
-                    # Iterar a través de las carpetas de ventana
-                    for window_size in os.listdir(filter_path):
-                        window_path = os.path.join(filter_path, window_size)
-
-                        # Verificar si es una carpeta
-                        if not os.path.isdir(window_path):
-                            continue
-
-                        # Entrenar el modelo
-                        for filename in os.listdir(window_path):
-                            if filename.endswith(".csv"):
-                                train_data_path = os.path.join(window_path, filename)
-                                train_a2c_model(train_data_path)
-                                train_ppo_model(train_data_path, base_path)  # Train PPO as well
-
-                # Si "no_filtrado" no está en la ruta, ir a la subcarpeta "wavelet"
-                else:
-                    wavelet_path = os.path.join(filter_path, "wavelet")
-
-                    # Verificar si la carpeta "wavelet" existe
-                    if not os.path.exists(wavelet_path):
-                        continue
-
-                    # Iterar a través de las carpetas de ventana
-                    for window_size in os.listdir(wavelet_path):
-                        window_path = os.path.join(wavelet_path, window_size)
-
-                        # Verificar si es una carpeta
-                        if not os.path.isdir(window_path):
-                            continue
-
-                        # Entrenar el modelo
-                        for filename in os.listdir(window_path):
-                            if filename.endswith(".csv"):
-                                train_data_path = os.path.join(window_path, filename)
-                                train_a2c_model(train_data_path)
-                                train_ppo_model(train_data_path, base_path)  # Train PPO as well
+         
+    train_ppo_model(base_path, base_path)  # Train PPO
+          
 
 def process_a2c_testing_data(base_path):
     """
@@ -635,120 +608,130 @@ def train_ppo_model(train_data_path, base_path):
         train_data_path (str): Ruta al archivo CSV de datos de entrenamiento.
         base_path (str): Ruta base del proyecto para guardar el CSV de resultados.
     """
-    # Cargar los datos de entrenamiento
-    train_df = pd.read_csv(train_data_path)
-
-    # Crear y verificar el entorno de entrenamiento
-    train_env = StockTradingEnv(train_df, render_mode=None)
-    check_env(train_env)
-
-    # Vectorizar el entorno de entrenamiento
-    vec_env = DummyVecEnv([lambda: train_env])
-
-  
-    # Definir rangos de hiperparámetros
-    learning_rates = [0.00007]  # Tasas de aprendizaje
-    gammas = [0.99]  # Factores de descuento
-    n_steps_list = [128]  # Número de pasos antes de actualizar el modelo
-    ent_coefs = [0.01]  # Coeficientes de la pérdida de entropía
-    vf_coefs = [0.5]  # Coeficientes de la pérdida de la función de valor
-    max_grad_norms = [0.5]  # Valores máximos para la normalización del gradiente
-    gae_lambdas = [0.95]  # GAE lambda parameter
-    batch_sizes = [128]  # Batch size
-
     
-    # Definir rangos de hiperparámetros para PPO
-    learning_rates = [0.0001, 0.0003, 0.0007, 0.001]  # Tasas de aprendizaje
-    gammas = [0.95, 0.97, 0.99]  # Factores de descuento
-    n_steps_list = [64, 128, 256]  # Número de pasos antes de actualizar el modelo
-    ent_coefs = [0.01, 0.02, 0.05]  # Coeficientes de la pérdida de entropía
-    vf_coefs = [0.5, 0.7, 0.9]  # Coeficientes de la pérdida de la función de valor
-    max_grad_norms = [0.5, 1.0, 1.5]  # Valores máximos para la normalización del gradiente
-    gae_lambdas = [0.9, 0.95, 0.99]  # GAE lambda parameter
-    batch_sizes = [64, 128, 256]  # Batch size
+    
+    for nombre_archivo in os.listdir(base_path):
+        ruta_archivo = os.path.join(base_path, nombre_archivo)
+        if (nombre_archivo.startswith("EUR") or nombre_archivo.startswith("GBP")):           
+        # Leer el archivo CSV en un DataFrame, usando ';' como separador
+            try:
+                train_df = pd.read_csv(ruta_archivo, sep=';')
+            except Exception as e:
+                print(f"Error al leer el archivo {nombre_archivo}: {e}")
+                continue
+            # Cargar los datos de entrenamiento
+        
+            
+            # Crear y verificar el entorno de entrenamiento
+            train_env = StockTradingEnv(train_df, render_mode=None)
+            check_env(train_env)
 
-    # Extract information from the training data path
-    train_data_filename = os.path.basename(train_data_path)
-    is_filtered = "no_filtrado" not in train_data_path
-    is_normalized = "no_normalizado" not in train_data_path
+            # Vectorizar el entorno de entrenamiento
+            vec_env = DummyVecEnv([lambda: train_env])
 
-    # CSV file path
-    csv_file = os.path.join(base_path, "training_results.csv")
-    file_exists = os.path.isfile(csv_file)
+        
+            # Definir rangos de hiperparámetros
+            learning_rates = [0.00007]  # Tasas de aprendizaje
+            gammas = [0.99]  # Factores de descuento
+            n_steps_list = [128]  # Número de pasos antes de actualizar el modelo
+            ent_coefs = [0.01]  # Coeficientes de la pérdida de entropía
+            vf_coefs = [0.5]  # Coeficientes de la pérdida de la función de valor
+            max_grad_norms = [0.5]  # Valores máximos para la normalización del gradiente
+            gae_lambdas = [0.95]  # GAE lambda parameter
+            batch_sizes = [128]  # Batch size
 
-    # Iterar a través de las combinaciones de hiperparámetros
-    for learning_rate in learning_rates:
-        for gamma in gammas:
-            for n_steps in n_steps_list:
-                for ent_coef in ent_coefs:
-                    for vf_coef in vf_coefs:
-                        for max_grad_norm in max_grad_norms:
-                            for gae_lambda in gae_lambdas:
-                                for batch_size in batch_sizes:
-                                    # Definir el nombre del modelo
-                                    model_name = f"ppo_lr{learning_rate}_gamma{gamma}_nsteps{n_steps}_ent{ent_coef}_vf{vf_coef}_gradnorm{max_grad_norm}_gae{gae_lambda}_batch{batch_size}"
+            
+            # # Definir rangos de hiperparámetros para PPO
+            learning_rates = [0.0001, 0.0003, 0.0007, 0.001]  # Tasas de aprendizaje
+            # gammas = [0.95, 0.97, 0.99]  # Factores de descuento
+            # n_steps_list = [64, 128, 256]  # Número de pasos antes de actualizar el modelo
+            # ent_coefs = [0.01, 0.02, 0.05]  # Coeficientes de la pérdida de entropía
+            # vf_coefs = [0.5, 0.7, 0.9]  # Coeficientes de la pérdida de la función de valor
+            # max_grad_norms = [0.5, 1.0, 1.5]  # Valores máximos para la normalización del gradiente
+            # gae_lambdas = [0.9, 0.95, 0.99]  # GAE lambda parameter
+            # batch_sizes = [64, 128, 256]  # Batch size
 
-                                    # Crear la carpeta para los entrenamientos
-                                    training_folder = os.path.join(os.path.dirname(train_data_path), "entrenamientos", "PPO")
-                                    os.makedirs(training_folder, exist_ok=True)
+            # Extract information from the training data path
+            train_data_filename = os.path.basename(train_data_path)
+            
+            # CSV file path
+            csv_file = os.path.join(base_path, "training_results.csv")
+            file_exists = os.path.isfile(csv_file)
 
-                                    # Crear la carpeta para el modelo entrenado
-                                    model_folder = os.path.join(training_folder, model_name)
-                                    os.makedirs(model_folder, exist_ok=True)
+            # Iterar a través de las combinaciones de hiperparámetros
+            for learning_rate in learning_rates:
+                for gamma in gammas:
+                    for n_steps in n_steps_list:
+                        for ent_coef in ent_coefs:
+                            for vf_coef in vf_coefs:
+                                for max_grad_norm in max_grad_norms:
+                                    for gae_lambda in gae_lambdas:
+                                        for batch_size in batch_sizes:
+                                            # Definir el nombre del modelo
+                                            model_name = f"ppo_lr{learning_rate}_gamma{gamma}_nsteps{n_steps}_ent{ent_coef}_vf{vf_coef}_gradnorm{max_grad_norm}_gae{gae_lambda}_batch{batch_size}"
 
-                                    model_path = os.path.join(model_folder, "model")
+                                            # Crear la carpeta para los entrenamientos
+                                            training_folder = os.path.join(os.path.dirname(train_data_path), "entrenamientos", "PPO")
+                                            os.makedirs(training_folder, exist_ok=True)
 
-                                    print(f"Entrenando modelo: {model_name}")
+                                            # Crear la carpeta para el modelo entrenado
+                                            model_folder = os.path.join(training_folder, model_name)
+                                            os.makedirs(model_folder, exist_ok=True)
 
-                                    # Entrenar el modelo
-                                    model = PPO('MlpPolicy', vec_env, learning_rate=learning_rate, gamma=gamma, n_steps=n_steps,
-                                                ent_coef=ent_coef, vf_coef=vf_coef, max_grad_norm=max_grad_norm, gae_lambda=gae_lambda,
-                                                batch_size=batch_size, verbose=0, device='cpu')
-                                    # # Entrenar el modelo
-                                    # model = PPO('MlpPolicy',vec_env,verbose=0, device='cpu')
-                                    model.learn(total_timesteps=10000)
+                                            model_path = os.path.join(model_folder, "model")
 
-                                    # Guardar el modelo
-                                    model.save(model_path)
-                                    print(f"Modelo guardado en: {model_path}")
+                                            print(f"Entrenando modelo: {model_name}")
 
-                                    # Guardar las estadísticas de entrenamiento
-                                    stats_path = os.path.join(model_folder, "stats.txt")
-                                    with open(stats_path, "w") as f:
-                                        f.write(f"Tasa de Aprendizaje: {learning_rate}\n")
-                                        f.write(f"Gamma: {gamma}\n")
-                                        f.write(f"N Pasos: {n_steps}\n")
-                                        f.write(f"Ent Coef: {ent_coef}\n")
-                                        f.write(f"VF Coef: {vf_coef}\n")
-                                        f.write(f"Max Grad Norm: {max_grad_norm}\n")
-                                        f.write(f"GAE Lambda: {gae_lambda}\n")
-                                        f.write(f"Batch Size: {batch_size}\n")
-                                    print(f"Estadísticas de entrenamiento guardadas en: {stats_path}")
+                                            # Entrenar el modelo
+                                            model = PPO('MlpPolicy', vec_env, learning_rate=learning_rate, gamma=gamma, n_steps=n_steps,
+                                                        ent_coef=ent_coef, vf_coef=vf_coef, max_grad_norm=max_grad_norm, gae_lambda=gae_lambda,
+                                                        batch_size=batch_size, verbose=1, device='cpu')
+                                            # # Entrenar el modelo
+                                            # model = PPO('MlpPolicy',vec_env,verbose=0, device='cpu')
+                                            callback = PrintTrainingStatisticsCallback()
+                                            model.learn(total_timesteps=100000, callback=callback)
+                                            
+                                            # Guardar el modelo
+                                            model.save(model_path)
+                                            print(f"Modelo guardado en: {model_path}")
 
-                                    # Extract algorithm name from the model path
-                                    algorithm_name = os.path.basename(os.path.dirname(os.path.dirname(model_path)))
+                                            # Guardar las estadísticas de entrenamiento
+                                            stats_path = os.path.join(model_folder, "stats.txt")
+                                            with open(stats_path, "w") as f:
+                                                f.write(f"Tasa de Aprendizaje: {learning_rate}\n")
+                                                f.write(f"Gamma: {gamma}\n")
+                                                f.write(f"N Pasos: {n_steps}\n")
+                                                f.write(f"Ent Coef: {ent_coef}\n")
+                                                f.write(f"VF Coef: {vf_coef}\n")
+                                                f.write(f"Max Grad Norm: {max_grad_norm}\n")
+                                                f.write(f"GAE Lambda: {gae_lambda}\n")
+                                                f.write(f"Batch Size: {batch_size}\n")
+                                            print(f"Estadísticas de entrenamiento guardadas en: {stats_path}")
 
-                                    # Use a more robust regex to extract parameters
-                                    params = re.findall(r"([a-z]+)([0-9\.e-]+)", model_name)
-                                    params_dict = {p[0]: p[1] for p in params}
+                                            # Extract algorithm name from the model path
+                                            algorithm_name = os.path.basename(os.path.dirname(os.path.dirname(model_path)))
 
-                                    # Write to CSV
-                                    with open(csv_file, mode='a', newline='') as f:
-                                        writer = csv.writer(f)
-                                        if not file_exists:
-                                            writer.writerow([
-                                                "Algorithm", "Learning Rate", "Gamma", "N Steps", "Ent Coef", "VF Coef", "Max Grad Norm", "GAE Lambda", "Batch Size",
-                                                "Train Data", "Filtered", "Normalized"
-                                            ])
-                                            file_exists = True  # Ensure header is only written once
+                                            # Use a more robust regex to extract parameters
+                                            params = re.findall(r"([a-z]+)([0-9\.e-]+)", model_name)
+                                            params_dict = {p[0]: p[1] for p in params}
 
-                                        writer.writerow([
-                                            algorithm_name, params_dict.get("lr", ""), params_dict.get("gamma", ""), params_dict.get("nsteps", ""),
-                                            params_dict.get("ent", ""), params_dict.get("vf", ""), params_dict.get("gradnorm", ""), params_dict.get("gae", ""), params_dict.get("batch", ""),
-                                            train_data_filename, is_filtered, is_normalized
-                                        ])
+                                            # Write to CSV
+                                            with open(csv_file, mode='a', newline='') as f:
+                                                writer = csv.writer(f)
+                                                if not file_exists:
+                                                    writer.writerow([
+                                                        "Algorithm", "Learning Rate", "Gamma", "N Steps", "Ent Coef", "VF Coef", "Max Grad Norm", "GAE Lambda", "Batch Size",
+                                                        "Train Data", "Filtered", "Normalized"
+                                                    ])
+                                                    file_exists = True  # Ensure header is only written once
 
-    print(f"Estadísticas de entrenamiento guardadas en: {csv_file}")
+                                                writer.writerow([
+                                                    algorithm_name, params_dict.get("lr", ""), params_dict.get("gamma", ""), params_dict.get("nsteps", ""),
+                                                    params_dict.get("ent", ""), params_dict.get("vf", ""), params_dict.get("gradnorm", ""), params_dict.get("gae", ""), params_dict.get("batch", ""),
+                                                    train_data_filename
+                                                ])
+
+        print(f"Estadísticas de entrenamiento guardadas en: {csv_file}")
 
 def test_ppo_model(model_path, test_data_path):
     """
@@ -1410,14 +1393,14 @@ def process_data(base_path):
         base_path (str): Ruta base donde se encuentran las carpetas de datos.
     """
    #process_data_sac_training_data(base_path)
-    #process_a2c_ppo_training_data(base_path)
+    process_a2c_ppo_training_data(base_path)
     #process_a2c_testing_data(base_path)
-    process_ppo_testing_data(base_path)
+    #process_ppo_testing_data(base_path)
    # process_sac_testing_data(base_path)
     
     
 # Ejemplo de uso
 # Reemplazar 'ruta/a/tus/datos_de_entrenamiento.csv' y 'ruta/a/tus/datos_de_prueba.csv'
 # con las rutas reales a tus datos de entrenamiento y prueba
-base_path = 'processed_data'
+base_path = 'fxtraind'
 process_data(base_path)
