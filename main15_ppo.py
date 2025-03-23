@@ -30,11 +30,11 @@ class PrintTrainingStatisticsCallback(BaseCallback):
                 "Policy Loss": self.model.logger.name_to_value['train/policy_loss'],
                 "Entropy": self.model.logger.name_to_value['train/entropy_loss']
             }
-            print(f"Step: {stats['Step']}")
-            print(f"  Loss: {stats['Loss']}")
-            print(f"  Value Loss: {stats['Value Loss']}")
-            print(f"  Policy Loss: {stats['Policy Loss']}")
-            print(f"  Entropy: {stats['Entropy']}")
+            # print(f"Step: {stats['Step']}")
+            # print(f"  Loss: {stats['Loss']}")
+            # print(f"  Value Loss: {stats['Value Loss']}")
+            # print(f"  Policy Loss: {stats['Policy Loss']}")
+            # print(f"  Entropy: {stats['Entropy']}")
 
             # Save statistics to CSV
             with open(self.csv_file, mode='a', newline='') as f:
@@ -105,7 +105,23 @@ class StockTradingEnv(gym.Env):
             self.current_step += 1  # Avanzar al siguiente paso
             self._take_action(action)  # Realizar la acción
             obs = self._next_observation()  # Obtener la siguiente observación
-            reward = (self.net_worth - self.initial_balance) / self.initial_balance  # Calcular la recompensa
+
+            # Calcular la recompensa basada en el cambio de patrimonio neto
+            reward = (self.net_worth - self.initial_balance) / self.initial_balance
+
+            # Penalización por inactividad (mantener)
+            if action == 0:
+                reward -= 0.01
+
+            # Recompensa adicional por operaciones exitosas
+            if action == 1 and self.net_worth > self.initial_balance:
+                reward += 0.1
+            elif action == 2 and self.net_worth > self.initial_balance:
+                reward += 0.1
+
+            # Penalización por riesgo (volatilidad del patrimonio neto)
+            if self.net_worth < self.initial_balance:
+                reward -= 0.1
         else:
             obs = self._next_observation()  # Obtener la observación final
             reward = 0  # Recompensa cero al final del episodio
@@ -113,6 +129,7 @@ class StockTradingEnv(gym.Env):
         info = {'step': self.current_step, 'balance': self.balance, 'shares_held': self.shares_held, 'net_worth': self.net_worth}  # Información adicional
         self.action_history.append([self.current_step, action, self.df.iloc[self.current_step]['Close']])  # Registrar la acción
         return obs, reward, terminated, truncated, info  # Devolver los resultados
+
 
     # Función para renderizar el entorno (opcional)
     def render(self, mode='human'):
@@ -165,21 +182,23 @@ def train_ppo_model(train_data_path, base_path):
 
         
             # Definir rangos de hiperparámetros
-            learning_rates = [0.00007]  # Tasas de aprendizaje
+            #learning_rates = [0.0001, 0.0003, 0.0007, 0.001]  # Tasas de aprendizaje
             gammas = [0.99]  # Factores de descuento
-            n_steps_list = [128]  # Número de pasos antes de actualizar el modelo
+            n_steps = [2048]  # Número de pasos antes de actualizar el modelo
+            #n_steps_list = [128]  # Número de pasos antes de actualizar el modelo
             ent_coefs = [0.01]  # Coeficientes de la pérdida de entropía
             vf_coefs = [0.5]  # Coeficientes de la pérdida de la función de valor
             max_grad_norms = [0.5]  # Valores máximos para la normalización del gradiente
             gae_lambdas = [0.95]  # GAE lambda parameter
             batch_sizes = [128]  # Batch size
-
-            
+            clip_range = 0.2  # Clip range    
+            n_epochs = 10  # Increase the number of epochs
             # # Definir rangos de hiperparámetros para PPO
-           #learning_rates = [0.0001, 0.0003, 0.0007, 0.001]  # Tasas de aprendizaje
-            learning_rates = [0.0001, 0.0003]  # Tasas de aprendizaje
-            # gammas = [0.95, 0.97, 0.99]  # Factores de descuento
-            n_steps_list = [64]  # Número de pasos antes de actualizar el modelo
+            #learning_rates = [0.0001, 0.0003, 0.0007, 0.001]  # Tasas de aprendizaje
+            learning_rates = [0.0001]  # Tasas de aprendizaje
+            
+            #gammas = [0.95, 0.97, 0.99]  # Factores de descuento
+            #n_steps_list = [64]  # Número de pasos antes de actualizar el modelo
             # ent_coefs = [0.01, 0.02, 0.05]  # Coeficientes de la pérdida de entropía
             # vf_coefs = [0.5, 0.7, 0.9]  # Coeficientes de la pérdida de la función de valor
             # max_grad_norms = [0.5, 1.0, 1.5]  # Valores máximos para la normalización del gradiente
@@ -198,7 +217,7 @@ def train_ppo_model(train_data_path, base_path):
             # Iterar a través de las combinaciones de hiperparámetros
             for learning_rate in learning_rates:
                 for gamma in gammas:
-                    for n_steps in n_steps_list:
+                    for n_steps in n_steps:
                         for ent_coef in ent_coefs:
                             for vf_coef in vf_coefs:
                                 for max_grad_norm in max_grad_norms:
@@ -220,13 +239,15 @@ def train_ppo_model(train_data_path, base_path):
                                             print(f"Entrenando modelo: {model_name}")
 
                                             # Entrenar el modelo
-                                            model = PPO('MlpPolicy', vec_env, learning_rate=learning_rate, gamma=gamma, n_steps=n_steps,
-                                                        ent_coef=ent_coef, vf_coef=vf_coef, max_grad_norm=max_grad_norm, gae_lambda=gae_lambda,
-                                                        batch_size=batch_size, verbose=1, device='cpu')
+                                            # model = PPO('MlpPolicy', vec_env, learning_rate=learning_rate, gamma=gamma, n_steps=n_steps,
+                                            #             ent_coef=ent_coef, vf_coef=vf_coef, max_grad_norm=max_grad_norm, gae_lambda=gae_lambda,
+                                            #             batch_size=batch_size,clip_range=clip_range,n_epochs = n_epochs, verbose=1, device='cpu')
+                                             # Entrenar el modelo
+                                            model = PPO('MlpPolicy',vec_env, verbose=1, device='cpu')
                                             # # Entrenar el modelo
                                             # model = PPO('MlpPolicy',vec_env,verbose=0, device='cpu')
                                             callback = PrintTrainingStatisticsCallback(model_path)
-                                            model.learn(total_timesteps=10000, callback=callback)
+                                            model.learn(total_timesteps=100000, callback=callback)
                                             
                                             # Guardar el modelo
                                             model.save(model_path)
@@ -268,7 +289,7 @@ def train_ppo_model(train_data_path, base_path):
                                                     train_data_filename
                                                 ])
 
-        print(f"Estadísticas de entrenamiento guardadas en: {csv_file}")
+        #print(f"Estadísticas de entrenamiento guardadas en: {csv_file}")
 
 def test_ppo_model(model_path, test_data_path):
     """
@@ -282,7 +303,7 @@ def test_ppo_model(model_path, test_data_path):
     test_df = pd.read_csv(test_data_path)
 
     # Crear el entorno de prueba
-    test_env = StockTradingEnv(test_df, render_mode=None)
+    test_env = StockTradingEnv(test_df, render_mode=True)
     obs, _ = test_env.reset()
     net_worths = []
     actions = []
@@ -373,7 +394,7 @@ def test_ppo_model(model_path, test_data_path):
     plt.savefig(os.path.dirname(model_path) + "/net_worth_test.png")
     plt.close()
 
-def process_ppo_testing_data(base_path):
+
     """
     Procesa los datos de prueba para PPO en la estructura de carpetas especificada.
 
@@ -506,6 +527,7 @@ def process_ppo_testing_data(base_path):
 
     
 base_path = 'fxtraind\/EURJPY'
-
-train_ppo_model(base_path, base_path)  # Train PPO
-
+model_path = 'modelos entrenados para test\PPO\ppo_lr0.0001_gamma0.99_nsteps2048_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128\model.zip'
+test_data_path = 'fxtestd\EURJPY_D1'
+#train_ppo_model(base_path, base_path)  # Train PPO
+test_ppo_model(model_path, test_data_path)  # Test PPO
