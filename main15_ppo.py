@@ -69,10 +69,10 @@ class StockTradingEnv(gym.Env):
         frame = np.array([
             self.df.iloc[self.current_step]['Close'],  # Precio de cierre escalado
             self.df.iloc[self.current_step]['Volume'],# Volumen escalado
-            self.df.iloc[self.current_step]['Dif_a_la_Media_200'],  # Precio de cierre escalado
+            self.df.iloc[self.current_step]['Dif_a_la_Media_5000'],  # Precio de cierre escalado
             self.df.iloc[self.current_step]['Cambio_Porcentual'],
             self.df.iloc[self.current_step]['Close_Filtrado_Wavelet'],
-            self.df.iloc[self.current_step]['Volumen_Relativo_200'],
+            self.df.iloc[self.current_step]['Volumen_Relativo_5000'],
             self.balance / self.initial_balance,  # Balance relativo al balance inicial
             self.shares_held / 100,  # Acciones en posesión escaladas
             self.net_worth / self.initial_balance,  # Patrimonio neto relativo al balance inicial
@@ -195,9 +195,10 @@ def train_ppo_model(train_data_path, base_path):
             n_epochs = 10  # Increase the number of epochs
             # # Definir rangos de hiperparámetros para PPO
             #learning_rates = [0.0001, 0.0003, 0.0007, 0.001]  # Tasas de aprendizaje
-            learning_rates = [0.0001]  # Tasas de aprendizaje
+            learning_rates = [0.0003,0.001]  # Tasas de aprendizaje
+              # Tasas de aprendizaje
             
-            #gammas = [0.95, 0.97, 0.99]  # Factores de descuento
+            gammas = [0.90,0.99]  # Factores de descuento
             #n_steps_list = [64]  # Número de pasos antes de actualizar el modelo
             # ent_coefs = [0.01, 0.02, 0.05]  # Coeficientes de la pérdida de entropía
             # vf_coefs = [0.5, 0.7, 0.9]  # Coeficientes de la pérdida de la función de valor
@@ -217,7 +218,7 @@ def train_ppo_model(train_data_path, base_path):
             # Iterar a través de las combinaciones de hiperparámetros
             for learning_rate in learning_rates:
                 for gamma in gammas:
-                    for n_steps in n_steps:
+                    
                         for ent_coef in ent_coefs:
                             for vf_coef in vf_coefs:
                                 for max_grad_norm in max_grad_norms:
@@ -239,15 +240,15 @@ def train_ppo_model(train_data_path, base_path):
                                             print(f"Entrenando modelo: {model_name}")
 
                                             # Entrenar el modelo
-                                            # model = PPO('MlpPolicy', vec_env, learning_rate=learning_rate, gamma=gamma, n_steps=n_steps,
-                                            #             ent_coef=ent_coef, vf_coef=vf_coef, max_grad_norm=max_grad_norm, gae_lambda=gae_lambda,
-                                            #             batch_size=batch_size,clip_range=clip_range,n_epochs = n_epochs, verbose=1, device='cpu')
-                                             # Entrenar el modelo
-                                            model = PPO('MlpPolicy',vec_env, verbose=1, device='cpu')
+                                            model = PPO('MlpPolicy', vec_env, learning_rate=learning_rate, gamma=gamma,
+                                                        ent_coef=ent_coef, vf_coef=vf_coef, max_grad_norm=max_grad_norm, gae_lambda=gae_lambda,
+                                                        batch_size=batch_size,clip_range=clip_range,n_epochs = n_epochs, verbose=1, device='cpu')
+                                            #Entrenar el modelo
+                                            #model = PPO('MlpPolicy',vec_env, verbose=1, device='cpu')
                                             # # Entrenar el modelo
                                             # model = PPO('MlpPolicy',vec_env,verbose=0, device='cpu')
                                             callback = PrintTrainingStatisticsCallback(model_path)
-                                            model.learn(total_timesteps=100000, callback=callback)
+                                            model.learn(total_timesteps=40000, callback=callback)
                                             
                                             # Guardar el modelo
                                             model.save(model_path)
@@ -300,7 +301,7 @@ def test_ppo_model(model_path, test_data_path):
         test_data_path (str): Ruta al archivo CSV de datos de prueba.
     """
     # Cargar los datos de prueba
-    test_df = pd.read_csv(test_data_path)
+    test_df = pd.read_csv(test_data_path, sep=';')
 
     # Crear el entorno de prueba
     test_env = StockTradingEnv(test_df, render_mode=True)
@@ -526,8 +527,16 @@ def test_ppo_model(model_path, test_data_path):
 
 
     
-base_path = 'fxtraind\/EURJPY'
-model_path = 'modelos entrenados para test\PPO\ppo_lr0.0001_gamma0.99_nsteps2048_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128\model.zip'
-test_data_path = 'fxtestd\EURJPY_D1'
-#train_ppo_model(base_path, base_path)  # Train PPO
-test_ppo_model(model_path, test_data_path)  # Test PPO
+base_path = 'fxtrainm\GBPUSD'
+#model_path = 'modelos entrenados para test\PPO\ppo_lr0.0001_gamma0.99_nsteps2048_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128\model.zip'
+#model_path = 'modelos entrenados para test\PPO\ppo_lr0.0001_gamma0.99_nsteps2048_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128_2domejor\model.zip'
+#model_path = 'modelos entrenados para test\PPO\ppo_lr0.0003_gamma0.99_nsteps2048_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128_bueno\model.zip'
+#model_path = 'modelos entrenados para test\PPO\ppo_lr0.0007_gamma0.95_nsteps2048_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128\model.zip'
+#model_path = 'modelos entrenados para test\PPO_eurjpy_old_2\ppo_lr0.0001_gamma0.99_nsteps64_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128\model.zip'
+#model_path = 'modelos entrenados para test\PPO_eurjpy_old_2\ppo_lr0.0003_gamma0.99_nsteps64_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128\model.zip'
+
+
+test_data_path = 'fxtestd\EURUSD_D1'
+train_ppo_model(base_path, base_path)  # Train PPO
+
+#test_ppo_model(model_path, test_data_path)  # Test PPO
