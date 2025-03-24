@@ -1,0 +1,24 @@
+Algorithm,Learning Rate,Gamma,N Steps,Ent Coef,VF Coef,Max Grad Norm,GAE Lambda,Batch Size,Test Data,Filtered,Normalized,Overall Return,Final Net Worth,Buy Operations,Sell Operations
+modelos entrenados para test ppo eurjpy m,0.001,0.95,,0.01,0.5,0.5,0.95,128,EURUSD_15min,True,True,-0.012432565132829768,9875.674348671702,13462,17676
+modelos entrenados para test ppo eurjpy m,0.001,0.99,,0.01,0.5,0.5,0.95,128,EURUSD_15min,True,True,-0.004679129605164962,9953.20870394835,4951,34607
+modelos entrenados para test ppo eurjpy m,0.0003,0.95,,0.01,0.5,0.5,0.95,128,EURUSD_15min,True,True,-0.3549277481652715,6450.722518347285,31837,7924
+modelos entrenados para test ppo eurjpy m,0.0003,0.99,,0.01,0.5,0.5,0.95,128,EURUSD_15min,True,True,-0.02430188984293327,9756.981101570667,19829,19782
+modelos entrenados para test ppo eurjpy m,0.0003,0.99,,0.01,0.5,0.5,0.95,128,EURJPY_15min,True,True,-0.014428132973311403,9855.718670266886,19004,18964
+modelos entrenados para test ppo eurjpy m,0.001,0.95,,0.01,0.5,0.5,0.95,128,EURJPY_15min,True,True,-0.01775441119402658,9822.455888059734,13296,17160
+modelos entrenados para test ppo eurjpy m,0.001,0.99,,0.01,0.5,0.5,0.95,128,EURJPY_15min,True,True,-0.006156505518466111,9938.434944815339,4379,33582
+modelos entrenados para test ppo eurjpy m,0.0003,0.95,,0.01,0.5,0.5,0.95,128,EURJPY_15min,True,True,0.4678655969167343,14678.655969167343,30501,7611
+PPO_eurjpy_old_2,0.0001,0.99,64,0.01,0.5,0.5,0.95,128,EURJPY_15min,True,True,0.5464636042223113,15464.636042223114,33832,1367
+modelos entrenado para test ppo eurusd m,0.001,0.95,,0.01,0.5,0.5,0.95,128,EURUSD_15min,True,True,-0.24627007518714245,7537.2992481285755,8734,965
+modelos entrenado para test ppo eurusd m,0.0003,0.95,,0.01,0.5,0.5,0.95,128,EURUSD_15min,True,True,-0.020426573792742236,9795.734262072578,16210,17269
+modelos entrenado para test ppo eurusd m,0.0003,0.99,,0.01,0.5,0.5,0.95,128,EURUSD_15min,True,True,-0.002511925510052788,9974.880744899472,2596,35282
+modelos entrenado para test ppo eurusd m,0.0003,0.99,,0.01,0.5,0.5,0.95,128,EURUSD_15min,True,True,-0.0024682566417064664,9975.317433582935,2614,35299
+modelos entrenado para test ppo eurusd m,0.0003,0.99,,0.01,0.5,0.5,0.95,128,EURUSD_15min,True,True,-0.0022091984441520254,9977.90801555848,2537,35387
+modelos entrenados para test ppo gbpusd m,0.0003,0.99,,0.01,0.5,0.5,0.95,128,GBPUSD_15min,True,True,-0.0054890889710268315,9945.109110289732,4705,29675
+PPO_eurjpy_old_2,0.0001,0.99,64,0.01,0.5,0.5,0.95,128,EURJPY_15min,True,True,0.547015599626867,15470.15599626867,33784,1339
+PPO_eurjpy_old_2,0.0001,0.99,64,0.01,0.5,0.5,0.95,128,EURJPY_D1,True,True,0.0835814187935408,10835.814187935408,541,21
+modelos entrenados para test ppo gbpusd d,0.0003,0.95,,0.01,0.5,0.5,0.95,128,GBPUSD_D1,True,True,-4.87447382620303e-05,9999.51255261738,93,499
+modelos entrenados para test ppo gbpusd d,0.0007,0.95,,0.01,0.5,0.5,0.95,128,GBPUSD_D1,True,True,0.0018457130400214737,10018.457130400215,141,442
+modelos entrenados para test a2c eurjpy d,0.0003,0.99,,0.01,0.5,0.5,0.95,,EURJPY_D1,True,True,4.5936160728524554e-05,10000.459361607285,57,519
+modelos entrenados para test a2c eurjpy d,0.0003,0.9,,0.01,0.5,0.5,0.95,,EURJPY_D1,True,True,-0.00015794690791535686,9998.420530920846,185,389
+modelos entrenados para test sac eurjpy d,0.0003,0.99,10000,256,,0.01,EURJPY_D1,True,True,0.0006160113307310894,10006.16011330731,0,0
+modelos entrenados para test sac eurusd d,0.0003,0.99,10000,256,,0.005,EURUSD_D1,True,True,-0.00023660482159339153,9997.633951784066,0,8

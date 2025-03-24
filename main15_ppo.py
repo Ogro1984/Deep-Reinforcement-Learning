@@ -69,10 +69,10 @@ class StockTradingEnv(gym.Env):
         frame = np.array([
             self.df.iloc[self.current_step]['Close'],  # Precio de cierre escalado
             self.df.iloc[self.current_step]['Volume'],# Volumen escalado
-            self.df.iloc[self.current_step]['Dif_a_la_Media_5000'],  # Precio de cierre escalado
+            self.df.iloc[self.current_step]['Dif_a_la_Media_200'],  # Precio de cierre escalado
             self.df.iloc[self.current_step]['Cambio_Porcentual'],
             self.df.iloc[self.current_step]['Close_Filtrado_Wavelet'],
-            self.df.iloc[self.current_step]['Volumen_Relativo_5000'],
+            self.df.iloc[self.current_step]['Volumen_Relativo_200'],
             self.balance / self.initial_balance,  # Balance relativo al balance inicial
             self.shares_held / 100,  # Acciones en posesión escaladas
             self.net_worth / self.initial_balance,  # Patrimonio neto relativo al balance inicial
@@ -305,7 +305,7 @@ def test_ppo_model(model_path, test_data_path):
 
     # Crear el entorno de prueba
     test_env = StockTradingEnv(test_df, render_mode=True)
-    obs, _ = test_env.reset()
+    obs, _ = test_env.reset(seed=42)
     net_worths = []
     actions = []
 
@@ -373,25 +373,35 @@ def test_ppo_model(model_path, test_data_path):
    
 
 
-
-
-
     # Rutina de visualización
-    plt.figure(figsize=(10, 5))
+    plt.figure(figsize=(12, 8))
+    # Subplot 1: Valores de Close y operaciones
+    plt.subplot(2, 1, 1)
+    plt.plot(test_df['Close'].values, label='Close')
+    plt.xlabel('Paso de Tiempo')
+    plt.ylabel('Precio de Cierre')
+    plt.title(f'Precio de Cierre y Operaciones - {os.path.basename(os.path.dirname(model_path))} (Prueba)')
+
+    # Marcar las acciones en el gráfico
+    buy_indices = np.where(np.array(actions) == 1)[0]
+    sell_indices = np.where(np.array(actions) == 2)[0]
+
+    plt.scatter(buy_indices, test_df['Close'].values[buy_indices], marker='^', color='green', label='Compra')
+    plt.scatter(sell_indices, test_df['Close'].values[sell_indices], marker='v', color='red', label='Venta')
+
+    plt.legend()
+
+    # Subplot 2: Valor de la cartera
+    plt.subplot(2, 1, 2)
     plt.plot(net_worths, label='Patrimonio Neto')
     plt.xlabel('Paso de Tiempo')
     plt.ylabel('Patrimonio Neto')
     plt.title(f'Patrimonio Neto a lo Largo del Tiempo - {os.path.basename(os.path.dirname(model_path))} (Prueba)')
 
-    # Marcar las acciones en el gráfico
-    close_prices = test_df['Close'].values
-    buy_indices = np.where(np.array(actions) == 1)[0]
-    sell_indices = np.where(np.array(actions) == 2)[0]
-
-    plt.scatter(buy_indices, [net_worths[i] for i in buy_indices], marker='^', color='green', label='Compra')
-    plt.scatter(sell_indices, [net_worths[i] for i in sell_indices], marker='v', color='red', label='Venta')
-
     plt.legend()
+
+    # Guardar el gráfico
+    plt.tight_layout()
     plt.savefig(os.path.dirname(model_path) + "/net_worth_test.png")
     plt.close()
 
@@ -528,15 +538,21 @@ def test_ppo_model(model_path, test_data_path):
 
     
 base_path = 'fxtrainm\GBPUSD'
-#model_path = 'modelos entrenados para test\PPO\ppo_lr0.0001_gamma0.99_nsteps2048_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128\model.zip'
-#model_path = 'modelos entrenados para test\PPO\ppo_lr0.0001_gamma0.99_nsteps2048_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128_2domejor\model.zip'
-#model_path = 'modelos entrenados para test\PPO\ppo_lr0.0003_gamma0.99_nsteps2048_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128_bueno\model.zip'
-#model_path = 'modelos entrenados para test\PPO\ppo_lr0.0007_gamma0.95_nsteps2048_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128\model.zip'
-#model_path = 'modelos entrenados para test\PPO_eurjpy_old_2\ppo_lr0.0001_gamma0.99_nsteps64_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128\model.zip'
-#model_path = 'modelos entrenados para test\PPO_eurjpy_old_2\ppo_lr0.0003_gamma0.99_nsteps64_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128\model.zip'
+
+#model_path = 'modelos entrenados\modelos entrenados para test ppo eurjpy m\ppo_lr0.001_gamma0.95_nsteps[2048]_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128\model.zip'
+#model_path = 'modelos entrenados\modelos entrenados para test ppo eurjpy m\ppo_lr0.001_gamma0.99_nsteps[2048]_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128\model.zip'
+#model_path = 'modelos entrenados\modelos entrenados para test ppo eurjpy m\ppo_lr0.0003_gamma0.95_nsteps[2048]_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128\model.zip'
+model_path = 'modelos entrenados\modelos entrenados para test eurjpy d ppo\PPO_eurjpy_old_2\ppo_lr0.0001_gamma0.99_nsteps64_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128\model.zip'
+#model_path = 'modelos entrenados\modelos entrenado para test ppo eurusd m\ppo_lr0.001_gamma0.95_nsteps[2048]_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128\model.zip'
+#model_path = 'modelos entrenados\modelos entrenado para test ppo eurusd m\ppo_lr0.0003_gamma0.95_nsteps[2048]_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128\model.zip'
+#model_path = 'modelos entrenados\modelos entrenado para test ppo eurusd m\ppo_lr0.0003_gamma0.99_nsteps[2048]_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128_bueno\model.zip'
+#model_path = 'modelos entrenados\modelos entrenados para test ppo eurusd d\ppo_lr0.0003_gamma0.99_nsteps2048_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128_EURUSD_D\model.zip'
+#model_path = 'modelos entrenados\modelos entrenados para test ppo gbpusd m\ppo_lr0.0003_gamma0.99_nsteps[2048]_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128\model.zip'
+model_path = 'modelos entrenados\modelos entrenados para test ppo gbpusd d\ppo_lr0.0003_gamma0.95_nsteps[2048]_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128\model.zip'
+model_path = 'modelos entrenados\modelos entrenados para test ppo gbpusd d\ppo_lr0.0007_gamma0.95_nsteps[2048]_ent0.01_vf0.5_gradnorm0.5_gae0.95_batch128\model.zip'
+test_data_path = 'fxtestd\GBPUSD_D1'
+#train_ppo_model(base_path, base_path)  # Train PPO
+
+test_ppo_model(model_path, test_data_path)  # Test PPO
 
 
-test_data_path = 'fxtestd\EURUSD_D1'
-train_ppo_model(base_path, base_path)  # Train PPO
-
-#test_ppo_model(model_path, test_data_path)  # Test PPO
