@@ -22,3 +22,4 @@ modelos entrenados para test a2c eurjpy d,0.0003,0.99,,0.01,0.5,0.5,0.95,,EURJPY
 modelos entrenados para test a2c eurjpy d,0.0003,0.9,,0.01,0.5,0.5,0.95,,EURJPY_D1,True,True,-0.00015794690791535686,9998.420530920846,185,389
 modelos entrenados para test sac eurjpy d,0.0003,0.99,10000,256,,0.01,EURJPY_D1,True,True,0.0006160113307310894,10006.16011330731,0,0
 modelos entrenados para test sac eurusd d,0.0003,0.99,10000,256,,0.005,EURUSD_D1,True,True,-0.00023660482159339153,9997.633951784066,0,8
+modelos entrenados para test a2c eurjpy d,0.0003,0.9,,0.01,0.5,0.5,0.95,,EURJPY_D1,True,True,0.0005735512596149419,10005.73551259615,175,389
