@@ -16,8 +16,10 @@ from ta.utils import dropna
 from ta.momentum import RSIIndicator, StochasticOscillator
 from ta.trend import MACD, ADXIndicator, TRIXIndicator
 from ta.volatility import BollingerBands, DonchianChannel
+from sklearn.utils import shuffle
+import numpy as np
 
-def process_csv(df,file_path, output_dir='./', separator=';', moving_average_window=300):
+def process_csv(df,file_path, output_dir='./', separator=';', moving_average_window=5000):
     """
     Procesa un archivo CSV para preparar datos de trading.
 
@@ -168,6 +170,9 @@ def add_technical_indicators(df, output_dir='./', separator=';'):
     trix = TRIXIndicator(close=df['Close'], window=15)
     df['TRIX'] = trix.trix()
 
+
+
+
     # Generar el nombre del archivo de salida
     base_name = os.path.basename(file_path)
     name, ext = os.path.splitext(base_name)
@@ -178,6 +183,75 @@ def add_technical_indicators(df, output_dir='./', separator=';'):
     print(f"Archivo procesado con indicadores técnicos guardado en: {output_path}")
 
     return df
+
+def add_all_ta(df):
+     # Verificar si las columnas necesarias existen
+    required_columns = ['Close', 'High', 'Low', 'Volume']
+    for col in required_columns:
+        if col not in df.columns:
+            raise ValueError(f"La columna '{col}' debe estar presente en el archivo CSV.")
+
+    # Asegurarse de que no haya valores NaN
+    df = dropna(df)
+    
+      
+    # Calcular RSI (Relative Strength Index)
+    rsi = RSIIndicator(close=df['Close'], window=14)
+    df['RSI'] = rsi.rsi()
+
+    # Calcular MACD (Moving Average Convergence Divergence)
+    macd = MACD(close=df['Close'], window_slow=26, window_fast=12, window_sign=9)
+    df['MACD'] = macd.macd()
+    df['MACD_Signal'] = macd.macd_signal()
+    df['MACD_Hist'] = macd.macd_diff()
+
+    # Calcular Estocástico
+    stoch = StochasticOscillator(high=df['High'], low=df['Low'], close=df['Close'], window=14, smooth_window=3)
+    df['Stochastic_K'] = stoch.stoch()
+    df['Stochastic_D'] = stoch.stoch_signal()
+
+    # Calcular Bandas de Bollinger
+    bollinger = BollingerBands(close=df['Close'], window=20, window_dev=2)
+    df['BB_Middle'] = bollinger.bollinger_mavg()
+    df['BB_Upper'] = bollinger.bollinger_hband()
+    df['BB_Lower'] = bollinger.bollinger_lband()
+
+    # Calcular Canales de Donchian
+    donchian = DonchianChannel(high=df['High'], low=df['Low'], close=df['Close'], window=20)
+    df['Donchian_Upper'] = donchian.donchian_channel_hband()
+    df['Donchian_Lower'] = donchian.donchian_channel_lband()
+    df['Donchian_Middle'] = donchian.donchian_channel_mband()
+
+    # Calcular ADX (Average Directional Index)
+    adx = ADXIndicator(high=df['High'], low=df['Low'], close=df['Close'], window=14)
+    df['ADX'] = adx.adx()
+    df['ADX_Pos'] = adx.adx_pos()
+    df['ADX_Neg'] = adx.adx_neg()
+
+    # Calcular Momentum
+    df['Momentum'] = df['Close'] - df['Close'].shift(10)
+
+    # Calcular TRIX (Triple Exponential Moving Average)
+    trix = TRIXIndicator(close=df['Close'], window=15)
+    df['TRIX'] = trix.trix()
+
+    # Calcular Volatilidad (ATR - Average True Range)
+    df['ATR'] = df['High'] - df['Low']
+
+    # Calcular Media Móvil Simple (SMA)
+    df['SMA_50'] = df['Close'].rolling(window=50).mean()
+    df['SMA_200'] = df['Close'].rolling(window=200).mean()
+
+    # Calcular Media Móvil Exponencial (EMA)
+    df['EMA_50'] = df['Close'].ewm(span=50, adjust=False).mean()
+    df['EMA_200'] = df['Close'].ewm(span=200, adjust=False).mean()
+
+    # Calcular Índice de Fuerza Relativa (Force Index)
+    df['Force_Index'] = df['Close'].diff(1) * df['Volume']
+
+    df = dropna(df)
+    return df
+
 
 def plot_all_in_one(df, columns, output_path='./combined_plot.png'):
     """
@@ -244,6 +318,14 @@ def drop_low_correlation_columns(df, target_column='Close', high_positive=(0.80,
         # Asegurarse de no eliminar la columna objetivo
     if target_column in columns_to_drop:
         columns_to_drop.remove(target_column)
+
+     # Guardar las columnas eliminadas en un archivo CSV
+    base_name = os.path.basename(file_path)
+    name, ext = os.path.splitext(base_name)
+    dropped_columns_path = os.path.join(os.path.dirname(file_path), f"{name}_dropped_columns.csv")
+    pd.DataFrame(columns_to_drop, columns=['Dropped Columns']).to_csv(dropped_columns_path, index=False)
+    print(f"Columnas eliminadas guardadas en: {dropped_columns_path}")
+
     # Eliminar las columnas identificadas
     df = df.drop(columns=columns_to_drop)
     print(f"Columnas eliminadas debido a correlación en los rangos especificados con '{target_column}': {columns_to_drop}")
@@ -260,7 +342,7 @@ def drop_low_correlation_columns(df, target_column='Close', high_positive=(0.80,
 
     return df
 
-def drop_na_and_save(df, file_path):
+def drop_na_and_save(df, file_path='./'):
     """
     Elimina las filas con valores NaN o nulos al principio del DataFrame y guarda el resultado
     en un archivo CSV con el nombre del archivo original más '_dropna'.
@@ -406,150 +488,65 @@ def normalize_and_save(df, nombre,file_path='./'):
 
     return df
 
-# def plot_and_save_financial_data(df, output_path):
-#     """
-#     Plots financial data with multiple subplots and saves the graphic:
-#     - Close price with scaled volume as vertical bars.
-#     - Relative volume.
-#     - RSI with horizontal lines at 0.2 and 0.7.
-#     - MACD and MACD Signal.
-#     - Stochastic K and D.
-#     - Momentum.
-#     - ADX_Pos.
-#     - TRIX.
+def drop_specific_columns(df, columns_to_drop=['']):
+    """
+    Elimina columnas específicas de un DataFrame y guarda el resultado en un archivo CSV.
 
-#     Args:
-#         df (pd.DataFrame): DataFrame containing the data.
-#         output_path (str): Path to save the resulting graphic.
-#     """
-#     # Scale volume to range 0-20
-#     scaler = MinMaxScaler(feature_range=(0, 20))
-#     df['Volume_Scaled'] = scaler.fit_transform(df[['Volume']])
+    Args:
+        df (pd.DataFrame): DataFrame que contiene los datos.
+        columns_to_drop (list): Lista de nombres de columnas a eliminar.
+        file_path (str): Ruta del archivo original para generar el nombre del archivo de salida.
 
-#     # Create the figure and subplots
-#     fig, axes = plt.subplots(7, 1, figsize=(12, 20), sharex=True)
-#     fig.tight_layout(pad=4.0)
+    Returns:
+        pd.DataFrame: DataFrame sin las columnas especificadas.
+    """
+    # Lista de columnas a eliminar
+    columns_to_drop = [
+    'Time','Open', 'High', 'Low', 'relative_change', 'MACD_Hist', 'Stochastic_K', 'Stochastic_D',
+    'BB_Middle', 'BB_Upper', 'BB_Lower', 'Donchian_Upper', 'Donchian_Lower', 'Donchian_Middle',
+    'ADX', 'ADX_Pos', 'ADX_Neg', 'Momentum']
+    
+    # Verificar si las columnas existen en el DataFrame
+    existing_columns_to_drop = [col for col in columns_to_drop if col in df.columns]
+    if not existing_columns_to_drop:
+        print("No se encontraron columnas para eliminar.")
+        return df
 
-#     # Plot 1: Close price with scaled volume as vertical bars
-#     axes[0].plot(df['Close'], label='Close Price', color='blue')
-#     axes[0].bar(df.index, df['Volume_Scaled'], color='gray', alpha=0.5, label='Volume (Scaled)')
-#     axes[0].set_title('Close Price and Scaled Volume')
-#     axes[0].legend()
+    # Eliminar las columnas especificadas
+    df = df.drop(columns=existing_columns_to_drop)
+    print(f"Columnas eliminadas: {existing_columns_to_drop}")
+    return df
 
-#     # Plot 2: Relative Volume
-#     axes[1].plot(df['relative_volume'], label='Relative Volume', color='orange')
-#     axes[1].set_title('Relative Volume')
-#     axes[1].legend()
+def drop_specific_columns_15(df, columns_to_drop=['']):
+    """
+    Elimina columnas específicas de un DataFrame y guarda el resultado en un archivo CSV.
 
-#     # Plot 3: RSI with horizontal lines at 0.2 and 0.7
-#     axes[2].plot(df['RSI'], label='RSI', color='green')
-#     axes[2].axhline(y=0.2, color='red', linestyle='--', label='Lower Threshold (0.2)')
-#     axes[2].axhline(y=0.7, color='red', linestyle='--', label='Upper Threshold (0.7)')
-#     axes[2].set_title('RSI')
-#     axes[2].legend()
+    Args:
+        df (pd.DataFrame): DataFrame que contiene los datos.
+        columns_to_drop (list): Lista de nombres de columnas a eliminar.
+        file_path (str): Ruta del archivo original para generar el nombre del archivo de salida.
 
-#     # Plot 4: MACD and MACD Signal
-#     axes[3].plot(df['MACD'], label='MACD', color='purple')
-#     axes[3].plot(df['MACD_Signal'], label='MACD Signal', color='brown')
-#     axes[3].set_title('MACD and MACD Signal')
-#     axes[3].legend()
+    Returns:
+        pd.DataFrame: DataFrame sin las columnas especificadas.
+    """
+    # Lista de columnas a eliminar
+    columns_to_drop = ['Open', 'High', 'Low', 'mean_close', 'relative_volume', 'relative_change', 
+               'RSI', 'MACD', 'MACD_Signal', 'MACD_Hist', 
+              'Stochastic_K', 'Stochastic_D', 'BB_Middle', 'BB_Upper', 'BB_Lower', 
+              'Donchian_Upper', 'Donchian_Lower', 'Donchian_Middle', 'ADX', 'ADX_Pos', 
+              'ADX_Neg', 'Momentum', 'TRIX', 'SMA_50', 'SMA_200', 'EMA_50', 'EMA_200', 'Force_Index']
+    
+    # Verificar si las columnas existen en el DataFrame
+    existing_columns_to_drop = [col for col in columns_to_drop if col in df.columns]
+    if not existing_columns_to_drop:
+        print("No se encontraron columnas para eliminar.")
+        return df
 
-#     # Plot 5: Stochastic K and D
-#     axes[4].plot(df['Stochastic_K'], label='Stochastic K', color='blue')
-#     axes[4].plot(df['Stochastic_D'], label='Stochastic D', color='orange')
-#     axes[4].set_title('Stochastic K and D')
-#     axes[4].legend()
+    # Eliminar las columnas especificadas
+    df = df.drop(columns=existing_columns_to_drop)
+    print(f"Columnas eliminadas: {existing_columns_to_drop}")
+    return df
 
-#     # Plot 6: Momentum
-#     axes[5].plot(df['Momentum'], label='Momentum', color='cyan')
-#     axes[5].set_title('Momentum')
-#     axes[5].legend()
-
-#     # Plot 7: ADX_Pos and TRIX
-#     axes[6].plot(df['ADX_Pos'], label='ADX_Pos', color='magenta')
-#     axes[6].plot(df['TRIX'], label='TRIX', color='lime')
-#     axes[6].set_title('ADX_Pos and TRIX')
-#     axes[6].legend()
-
-#     # Save the plot
-#     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-#     plt.savefig(output_path, dpi=300)
-#     print(f"Gráfico guardado en: {output_path}")
-
-#     # Show the plot
-#     plt.show()
-
-# def plot_and_save_financial_data(df, output_path):
-#     """
-#     Plots financial data with one big plot for Close and Volume at the top,
-#     and other shorter plots below it.
-
-#     Args:
-#         df (pd.DataFrame): DataFrame containing the data.
-#         output_path (str): Path to save the resulting graphic.
-#     """
-#     # Scale volume to range 0-20
-#     scaler = MinMaxScaler(feature_range=(0, 20))
-#     df['Volume_Scaled'] = scaler.fit_transform(df[['Volume']])
-
-#     # Create the figure and subplots
-#     fig = plt.figure(figsize=(15, 25))
-#     grid_spec = fig.add_gridspec(9, 1)  # 9 rows for flexible layout
-
-#     # Plot 1: Big plot for Close price and scaled Volume
-#     ax1 = fig.add_subplot(grid_spec[:3, 0])  # First 3 rows
-#     ax1.plot(df['Close'], label='Close Price', color='blue', linewidth=2)
-#     ax1.bar(df.index, df['Volume_Scaled'], color='gray', alpha=0.5, label='Volume (Scaled)', width=1.0)
-#     ax1.set_title('Close Price and Scaled Volume (Big Plot)', fontsize=14)
-#     ax1.legend()
-
-#     # Plot 2: Relative Volume
-#     ax2 = fig.add_subplot(grid_spec[3, 0])  # Row 4
-#     ax2.plot(df['relative_volume'], label='Relative Volume', color='orange')
-#     ax2.set_title('Relative Volume', fontsize=12)
-#     ax2.legend()
-
-#     # Plot 3: RSI with horizontal lines at 20 and 70
-#     ax3 = fig.add_subplot(grid_spec[4, 0])  # Row 5
-#     ax3.plot(df['RSI'], label='RSI', color='green')
-#     ax3.axhline(y=20, color='red', linestyle='--', label='Lower Threshold (20)')
-#     ax3.axhline(y=70, color='red', linestyle='--', label='Upper Threshold (70)')
-#     ax3.set_title('RSI', fontsize=12)
-#     ax3.legend()
-
-#     # Plot 4: MACD and MACD Signal
-#     ax4 = fig.add_subplot(grid_spec[5, 0])  # Row 6
-#     ax4.plot(df['MACD'], label='MACD', color='purple')
-#     ax4.plot(df['MACD_Signal'], label='MACD Signal', color='brown')
-#     ax4.set_title('MACD and MACD Signal', fontsize=12)
-#     ax4.legend()
-
-#     # Plot 5: Stochastic K and D
-#     ax5 = fig.add_subplot(grid_spec[6, 0])  # Row 7
-#     ax5.plot(df['Stochastic_K'], label='Stochastic K', color='blue')
-#     ax5.plot(df['Stochastic_D'], label='Stochastic D', color='orange')
-#     ax5.set_title('Stochastic K and D', fontsize=12)
-#     ax5.legend()
-
-#     # Plot 6: Momentum
-#     ax6 = fig.add_subplot(grid_spec[7, 0])  # Row 8
-#     ax6.plot(df['Momentum'], label='Momentum', color='cyan')
-#     ax6.set_title('Momentum', fontsize=12)
-#     ax6.legend()
-
-#     # Plot 7: diff_to_mean
-#     ax7 = fig.add_subplot(grid_spec[8, 0])  # Row 9
-#     ax7.plot(df['diff_to_mean'], label='Diff to Mean', color='lime')
-#     ax7.set_title('Diff to Mean', fontsize=12)
-#     ax7.legend()
-
-#     # Save the plot
-#     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-#     plt.savefig(output_path, dpi=300, bbox_inches='tight')
-#     print(f"Gráfico guardado en: {output_path}")
-
-#     # Show the plot
-#     plt.show()
 
 def plot_and_save_financial_data(df, output_path=r'C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\plots'):
     """
@@ -634,11 +631,178 @@ def plot_and_save_financial_data(df, output_path=r'C:\Users\cyber\Documents\Deep
     # Show the second plot
     plt.show()
 
-file_path = r'C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\data 1d\EURUSD_D1'
-df = pd.read_csv(r'C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\data 1d\EURUSD_D1', sep=';')
-final_file_path = r'C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\processed_files\EURJPY_D1_procesado_wavelet_with_indicators_high_corr_dropna'
+def plot_close_and_volume(df, output_path=r'./', low_volume_sc=0, high_volume_sc=1):
+    """
+    Plots the principal plot of Close price and scaled Volume.
 
-final_df=plot_correlation_heatmap(drop_na_and_save(drop_low_correlation_columns(drop_date_column(add_technical_indicators(wavelet_column(process_csv(df,file_path))))),file_path))
-normalize_and_save(final_df,'EURUSD_D1_NORMALIZED')
-plot_and_save_financial_data(final_df, final_file_path)
+    Args:
+        df (pd.DataFrame): DataFrame containing the data.
+        output_path (str): Path to save the resulting graphic.
+    """
+    # Scale volume to range 0-20
+    scaler = MinMaxScaler(feature_range=(low_volume_sc, high_volume_sc))
+    df['Volume_Scaled'] = scaler.fit_transform(df[['Volume']])
+
+    # Create the figure for Close and Volume
+    fig, ax = plt.subplots(figsize=(15, 8))
+    ax.plot(df['Close'], label='Close Price', color='blue', linewidth=2)
+    ax.bar(df.index, df['Volume_Scaled'], color='gray', alpha=0.5, label='Volume (Scaled)', width=1.0)
+    ax.set_title('Close Price and Scaled Volume', fontsize=14)
+    ax.set_xlabel('Index', fontsize=12)
+    ax.set_ylabel('Values', fontsize=12)
+    ax.legend()
+    ax.grid(True)
+
+    # Save the plot
+    close_volume_path = output_path.replace('.png', '_close_volume.png')
+    os.makedirs(os.path.dirname(close_volume_path), exist_ok=True)
+    plt.savefig(close_volume_path, dpi=300, bbox_inches='tight')
+    print(f"Gráfico de Close y Volume guardado en: {close_volume_path}")
+
+    # Show the plot
+    plt.show()
+
+def plot_indicators(df, output_path=r'./'):
+    """
+    Plots additional indicators: RSI, MACD, MACD Signal, mean_close, diff_to_mean, mean_volume, and TRIX.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the data.
+        output_path (str): Path to save the resulting graphic.
+    """
+    # Create the figure for additional indicators
+    fig, axes = plt.subplots(6, 1, figsize=(15, 25), sharex=True)
+    fig.tight_layout(pad=4.0)
+
+    # Plot 1: RSI with horizontal lines at 20 and 70
+    axes[0].plot(df['RSI'], label='RSI', color='green')
+    axes[0].axhline(y=0.2, color='red', linestyle='--', label='Lower Threshold (20)')
+    axes[0].axhline(y=0.7, color='red', linestyle='--', label='Upper Threshold (70)')
+    axes[0].set_title('RSI', fontsize=12)
+    axes[0].legend()
+
+    # Plot 2: MACD and MACD Signal
+    axes[1].plot(df['MACD'], label='MACD', color='purple')
+    axes[1].plot(df['MACD_Signal'], label='MACD Signal', color='brown')
+    axes[1].set_title('MACD and MACD Signal', fontsize=12)
+    axes[1].legend()
+
+    # Plot 3: Mean Close and Diff to Mean
+    axes[2].plot(df['mean_close'], label='Mean Close', color='blue')
+    axes[2].plot(df['diff_to_mean'], label='Diff to Mean', color='orange')
+    axes[2].set_title('Mean Close and Diff to Mean', fontsize=12)
+    axes[2].legend()
+
+    # Plot 4: Mean Volume
+    axes[3].plot(df['mean_volume'], label='Mean Volume', color='cyan')
+    axes[3].set_title('Mean Volume', fontsize=12)
+    axes[3].legend()
+
+    # Plot 5: TRIX
+    axes[4].plot(df['TRIX'], label='TRIX', color='darkblue')
+    axes[4].set_title('TRIX', fontsize=12)
+    axes[4].legend()
+
+   # Plot 6: Relative Volume
+    axes[5].plot(df['relative_volume'], label='Relative Volume', color='orange')
+    axes[5].set_title('Relative Volume', fontsize=12)
+    axes[5].legend()
+
+    # Save the plot
+    indicators_path = output_path.replace('.png', '_indicators.png')
+    plt.savefig(indicators_path, dpi=300, bbox_inches='tight')
+    print(f"Gráfico de indicadores guardado en: {indicators_path}")
+
+    # Show the plot
+    plt.show()
+
+def plot_indicators_15(df, output_path=r'./'):
+    """
+    Plots additional indicators: RSI, MACD, MACD Signal, mean_close, diff_to_mean, mean_volume, and TRIX.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the data.
+        output_path (str): Path to save the resulting graphic.
+    """
+    # Create the figure for additional indicators
+    fig, axes = plt.subplots(3, 1, figsize=(15, 25), sharex=True)
+    fig.tight_layout(pad=4.0)
+
+    # Plot 3:  Diff to Mean
+    axes[0].plot(df['diff_to_mean'], label='Diff to Mean', color='orange')
+    axes[0].set_title('Diff to Mean', fontsize=12)
+    axes[0].legend()
+
+    # Plot 4: Mean Volume
+    axes[1].plot(df['mean_volume'], label='Mean Volume', color='cyan')
+    axes[1].set_title('Mean Volume', fontsize=12)
+    axes[1].legend()
+
+    # Plot 5: ATR
+    axes[2].plot(df['ATR'], label='ATR', color='darkblue')
+    axes[2].set_title('ATR', fontsize=12)
+    axes[2].legend()
+   
+
+    # Save the plot
+    indicators_path = output_path.replace('.png', '_indicators.png')
+    plt.savefig(indicators_path, dpi=300, bbox_inches='tight')
+    print(f"Gráfico de indicadores guardado en: {indicators_path}")
+
+    # Show the plot
+    plt.show()
+
+
+
+def prepare_drl_training_data_sklearn(df, batch_size=64, random_state=42):
+    """
+    Prepara un conjunto de datos para entrenar modelos de Deep Reinforcement Learning utilizando Scikit-learn para shuffling.
+
+    Args:
+        df (pd.DataFrame): DataFrame que contiene los datos.
+        batch_size (int): Tamaño de los lotes (batches) para el entrenamiento.
+        random_state (int): Semilla para la aleatorización (por defecto 42).
+
+    Returns:
+        list: Lista de lotes (batches) de datos.
+    """
+    # Mezclar los datos utilizando sklearn.utils.shuffle
+    df_shuffled = shuffle(df, random_state=random_state)
+
+    # Convertir el DataFrame a un array de NumPy
+    data = df_shuffled.to_numpy()
+
+    # Dividir los datos en lotes (batches)
+    num_batches = len(data) // batch_size
+    batches = [data[i * batch_size:(i + 1) * batch_size] for i in range(num_batches)]
+
+    # Si hay datos restantes, añadirlos como un lote más pequeño
+    if len(data) % batch_size != 0:
+        batches.append(data[num_batches * batch_size:])
+
+    print(f"Datos preparados en {len(batches)} lotes de tamaño {batch_size} (último lote puede ser más pequeño).")
+    return batches
+
+
+
+
+
+file_path = r'C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\data 15 min\EURJPY_15min'
+df = pd.read_csv(file_path, sep=';')
+#final_file_path = r'C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\processed_files\EURJPY_D1_procesado_wavelet_with_indicators_high_corr_dropna'
+
+# final_df=plot_correlation_heatmap(drop_na_and_save(drop_specific_columns(add_technical_indicators(wavelet_column(process_csv(df,file_path))))),file_path)
+# final_df=normalize_and_save(final_df,'GBPUSD_15min_NORMALIZED')
+# plot_close_and_volume(final_df)
+# plot_indicators(final_df)
+
+
+final_df=plot_correlation_heatmap(drop_na_and_save(drop_specific_columns_15(drop_date_column(add_all_ta(wavelet_column(process_csv(df,file_path)))))),file_path)
+final_df=normalize_and_save(final_df,'EURJPY_15min_NORMALIZED')
+#plot_close_and_volume(final_df)
+plot_indicators_15(final_df)
+
+
+
+
 
