@@ -1,0 +1,3 @@
+returns,Max Drawdown,Sharpe Ratio,Sortino Ratio,Calmar Ratio,Profit Factor,Win Rate,Expectancy,Maximum Adverse Excursion (MAE),Maximum Favorable Excursion (MFE),Ulcer Index,Final Balance
+"[ 0.00000000e+00  0.00000000e+00  0.00000000e+00 ... -2.69945792e-06
+  3.07476510e-08  0.00000000e+00]",0.008673199755321001,-0.19678395385762246,-0.1858137338178471,-0.00865615636308954,0,0.0,0.0,0,0,0.004920850684565356,9913.374603951332
