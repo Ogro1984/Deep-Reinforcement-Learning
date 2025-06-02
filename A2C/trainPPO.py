@@ -94,154 +94,7 @@ if __name__ == '__main__':
                     writer.writerow(stats.values())
             return True
 
-    # Entorno personalizado para el trading de acciones
-    class StockTradingEnv15min2(gym.Env):
-        def __init__(self, df, initial_balance=10000, shares_per_step=10, commission=0.001, render_mode=None):
-            super().__init__()
-            self.df = df  # DataFrame con los datos del mercado
-            self.initial_balance = initial_balance  # Balance inicial
-            self.balance = initial_balance  # Balance actual
-            self.net_worth = initial_balance  # Patrimonio neto actual
-            self.shares_held = 0  # Cantidad de acciones en posesión
-            self.shares_per_step = shares_per_step  # Cantidad de acciones a comprar/vender en cada paso
-            self.commission = commission  # Comisión por transacción
-            self.current_step = 0  # Paso actual en el entorno
-            self.reward_range = (-float('inf'), float('inf'))  # Rango de recompensas
-            self.action_space = Discrete(3)  # Espacio de acciones: 0: hold, 1: buy, 2: sell
-            #self.observation_space = Box(low=0, high=1, shape=(5,), dtype=np.float32)  # Espacio de observaciones
-            self.render_mode = render_mode  # Modo de renderización
-            self.action_history = []  # Historial de acciones
-            self.observation_space = Box(low=0, high=1, shape=(9,), dtype=np.float32)
-
-        # Función para generar la siguiente observación
-        def _next_observation(self):
-            frame = np.array([
-                self.df.iloc[self.current_step]['Close'],  # Precio de cierre escalado
-                self.df.iloc[self.current_step]['Volume'],# Volumen escalado
-                self.df.iloc[self.current_step]['diff_to_mean'],  # Precio de cierre escalado
-                self.df.iloc[self.current_step]['mean_volume'],  # Precio de cierre escalado
-                self.df.iloc[self.current_step]['Close_Filtrado_Wavelet'],
-                self.df.iloc[self.current_step]['ATR'],
-                self.balance / self.initial_balance,  # Balance relativo al balance inicial
-                self.shares_held / 100,  # Acciones en posesión escaladas
-                self.net_worth / self.initial_balance,  # Patrimonio neto relativo al balance inicial
-            ], dtype=np.float32)
-            return frame
-
-        def _take_action(self, action):
-            current_price = self.df.iloc[self.current_step]['Close']  # Precio actual
-            trade_quantity = self.shares_per_step  # Cantidad a transar
-            cost = trade_quantity * current_price * (1 + self.commission)  # Costo de la transacción
-
-            trade = {
-                'entry_price': None,
-                'exit_price': None,
-                'profit': 0,
-                'adverse_excursion': 0,
-                'favorable_excursion': 0
-            }
-
-            if action == 1:  # Comprar
-                if self.balance >= cost:  # Verificar si hay suficiente balance
-                    self.balance -= cost  # Reducir el balance
-                    self.shares_held += trade_quantity  # Aumentar las acciones en posesión
-                    trade['entry_price'] = current_price
-
-            elif action == 2:  # Vender
-                if self.shares_held >= trade_quantity:  # Verificar si hay suficientes acciones
-                    self.balance += trade_quantity * current_price * (1 - self.commission)  # Aumentar el balance
-                    self.shares_held -= trade_quantity  # Reducir las acciones en posesión
-                    trade['exit_price'] = current_price
-                    trade['profit'] = (current_price - trade['entry_price']) * trade_quantity if trade['entry_price'] else 0
-
-            # Actualizar el patrimonio neto
-            self.net_worth = self.balance + self.shares_held * current_price
-
-            # Registrar la operación
-            trade['adverse_excursion'] = min(0, current_price - (trade['entry_price'] or current_price))
-            trade['favorable_excursion'] = max(0, current_price - (trade['entry_price'] or current_price))
-            self.action_history.append(trade)
-            return trade
-
-        # Función para realizar un paso en el entorno
-        def step(self, action):
-            terminated = self.current_step >= len(self.df) - 1  # Verificar si el episodio ha terminado
-            # print (self.current_step)
-            # print (len(self.df))
-            truncated = False  # No se utiliza en este entorno
-
-            if not terminated:
-                self.current_step += 1  # Avanzar al siguiente paso
-                self._take_action(action)  # Realizar la acción
-                obs = self._next_observation()  # Obtener la siguiente observación
-
-                # recompensa basada en el cambio de patrimonio neto
-                reward = (self.net_worth - self.initial_balance)/self.initial_balance
-                #print(f"Reward1: {reward}")
-                
-                # # Penalización por inactividad (mantener)
-                if action == 0:
-                    reward -= 0.01
-
-                # Recompensa adicional por operaciones exitosas
-                if action == 1 and self.net_worth > self.initial_balance:
-                    reward += 0.05
-                elif action == 2 and self.net_worth > self.initial_balance:
-                    reward += 0.05
-
-                # # Penalización por riesgo (volatilidad del patrimonio neto)
-                # if self.net_worth < self.initial_balance:
-                #     reward -= 0.1
-            else:
-                obs = self._next_observation()  # Obtener la observación final
-                reward = 0  # Recompensa cero al final del episodio
-
-            #print(f"Reward2: {reward}")
-            # Registrar la acción como un diccionario
-            # trade = {
-            #     'step': self.current_step,
-            #     'action': action,
-            #     'price': self.df.iloc[self.current_step]['Close'],
-            #     'entry_price': trade['entry_price'] if action == 1 else None,
-            #     'exit_price': trade['exit_price'] if action == 2 else None,
-            #     'profit': trade['profit'] if action == 2 else 0,
-            #     'adverse_excursion': trade['adverse_excursion'] if action == 2 else 0,
-            #     'favorable_excursion': trade['favorable_excursion'] if action == 2 else 0,
-            # }
-            # self.action_history.append(trade)
-
-
-            #self.balance+=reward
-
-            info = {
-                'step': self.current_step,
-                'balance': self.balance,
-                'shares_held': self.shares_held,
-                'net_worth': self.net_worth,
-                'trades': self.action_history  # Pasar el historial de acciones como parte de la información
-                }
-            return obs, reward, terminated, truncated, info  # Devolver los resultados
-
-
-        # Función para renderizar el entorno (opcional)
-        def render(self, mode='human'):
-            if self.render_mode is not None:
-                print(f'Step: {self.current_step}')
-                print(f'Balance: {self.balance}')
-                print(f'Shares held: {self.shares_held}')
-                print(f'Net worth: {self.net_worth}')
-
-        def reset(self, seed=None, options=None):
-            super().reset(seed=seed)
-            self.balance = self.initial_balance  # Resetear el balance
-            self.net_worth = self.initial_balance  # Resetear el patrimonio neto
-            self.shares_held = 0  # Resetear las acciones en posesión
-            self.current_step = 0  # Resetear el paso actual
-            self.action_history = []  # Resetear el historial de acciones
-            obs = self._next_observation()  # Obtener la observación inicial
-            info = {}  # Información adicional
-            return obs, info  # Devolver la observación y la información
-
+   
   # Entorno personalizado para el trading de acciones
     class StockTradingEnv15min(gym.Env):
         def __init__(self, df, initial_balance=10, shares_per_step=1, commission=0.0001, render_mode=None):
@@ -400,7 +253,7 @@ if __name__ == '__main__':
         max_grad_norm = trial.suggest_float('max_grad_norm', 0.3, 1.0)
         gae_lambda = trial.suggest_float('gae_lambda', 0.8, 1.0)
         n_steps = trial.suggest_int('n_steps', 5, 2048, log=True)
-        
+        clip_range = trial.suggest_float('clip_range', 0.1, 0.4)  # Agrega
         train_env = StockTradingEnv15min(train_df)
         vec_env = DummyVecEnv([lambda: train_env])
 
@@ -413,7 +266,7 @@ if __name__ == '__main__':
 
         vec_env = SubprocVecEnv([make_env for _ in range(num_envs)])
 
-        model = A2C('MlpPolicy', vec_env, learning_rate=learning_rate, gamma=gamma,
+        model = PPO('MlpPolicy', vec_env, clip_range=clip_range, learning_rate=learning_rate, gamma=gamma,
                     ent_coef=ent_coef, vf_coef=vf_coef, max_grad_norm=max_grad_norm,
                     gae_lambda=gae_lambda, n_steps =n_steps, verbose=1,device="cpu")
 
@@ -432,7 +285,7 @@ if __name__ == '__main__':
             raise optuna.exceptions.TrialPruned()
       
 
-        reward = evaluate_model_min(model, vec_env, train_df,sample_size=500)
+        reward = evaluate_model_min(model, vec_env, train_df,sample_size=1000)
         print ("punga 4")
 
 
@@ -725,7 +578,7 @@ if __name__ == '__main__':
 
         print("punga 5")
         # Crear el modelo A2C con los mejores hiperparámetros
-        model = A2C('MlpPolicy', vec_env, **best_params, verbose=1, device="cpu")
+        model = PPO('MlpPolicy', vec_env, **best_params, verbose=1, device="cpu")
         print("punga 6")
         # Entrenar el modelo
         model.learn(total_timesteps=total_timesteps, callback=PrintTrainingStatisticsCallback(model_path))
@@ -747,7 +600,7 @@ if __name__ == '__main__':
         """
         # Si el modelo es una ruta, cargarlo
         if isinstance(model, str):
-            model = A2C.load(model, device="cpu")
+            model = PPO.load(model, device="cpu")
 
         # Crear el entorno de prueba
         test_env = StockTradingEnv15min(test_df, render_mode=True)
@@ -925,95 +778,42 @@ if __name__ == '__main__':
     df = pd.read_csv(file_path, sep=';')
 
     # Dividir los datos en entrenamiento y prueba sin mezclar
-    train_size = int(len(df) * 0.9)  # Usar el 80% para entrenamiento
+    train_size = int(len(df) * 0.7)  # Usar el 80% para entrenamiento
     train_df = df[:train_size]       # Datos de entrenamiento (ordenados temporalmente)
     test_df = df[train_size:]        
 
-
-    # Preparar los datos con shuffling
-    train_df = prepare_drl_training_data_sklearn(train_df)
-    # Hiperparámetros óptimos
-    # best_params = {
-    #                 'learning_rate': 8.603582509594346e-05,
-    #                 'gamma': 0.9831301691926517,
-    #                 'ent_coef': 2.7537065089483735e-07,
-    #                 'vf_coef': 0.7997236244404522,
-    #                 'max_grad_norm': 0.4466393228219806,
-    #                 'gae_lambda': 0.9119112512928644,
-    #                 'n_steps': 22
-    #             }
-
-    best_params = {
-    'learning_rate': 2.0447259257333886e-05,
-    'gamma': 0.832858822603956,
-    'ent_coef': 0.002674526994108215,
-    'vf_coef': 0.9065544266957681,
-    'max_grad_norm': 0.841000642511387,
-    'gae_lambda': 0.905226852376965,
-    'n_steps': 21
-}
-
     # Entrenar el modelo con los datos de entrenamiento
-    #best_params = optimize_hyperparameters(train_df,study_name='a2ceurjpy15min_4', n_trials=5)
-    
-    
-    
-    
-    
-    
-   #model = train_a2c_with_best_params(train_df, best_params,total_timesteps=10000,model_path="a2c_eurjpy_15MIN333.zip")
+    best_params = optimize_hyperparameters(train_df,study_name='a2ceurjpy15min_4PPO', n_trials=15)
+    model = train_a2c_with_best_params(train_df, best_params,total_timesteps=10000,model_path="a2c_eurjpy_15MINPPO.zip")
 
-    model = A2C.load(r"C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\a2c_eurjpy_15MIN333.zip", device="cpu")
-    samples_200_to_100 = test_df[-200:-100]
-    test_a2c_model(model,samples_200_to_100,nombre="test_plot_eurjpy_15MIN3333la200a100.png")
-    #metrics = test_and_validate_model(model, test_df, results_csv="test_results_eurjpy_15MIN.csv")
-    #print("Final Balance EURJPY 15min:", metrics['Final Balance'])
-    #evaluate_with_multiple_seeds_and_batches(model, test_df, excel_path="test_results_eurjpy_15MIN.xlsx", num_seeds=5, batch_size=3000) 
+    #model =PPO.load(r"C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\a2c_eurjpy_15MIN333.zip", device="cpu")
+    samples_200_to_100 = test_df[-300:-100]
+    test_a2c_model(model,samples_200_to_100,nombre="test_plot_eurjpy_15MIN3333PPO.png")
+    evaluate_with_multiple_seeds_and_batches(model, test_df, excel_path="test_results_eurjpy_15MINPPO.xlsx", num_seeds=10, batch_size=3000) 
 
+    file_path = r'C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\dataset normalized\GBPUSD_15min_NORMALIZED_normalized'
+    df = pd.read_csv(file_path, sep=';')
 
-
-    # # Cargar los datos GBPUSD
-    # # Cargar los datos
-    # file_path = r'C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\dataset normalized\GBPUSD_15min_NORMALIZED_normalized'
-    # df = pd.read_csv(file_path, sep=';')
-
-    # # Dividir los datos en entrenamiento y prueba sin mezclar
-    # train_size = int(len(df) * 0.7)  # Usar el 80% para entrenamiento
-    # train_df = df[:train_size]       # Datos de entrenamiento (ordenados temporalmente)
-    # test_df = df[train_size:]        
-
-
-    # # # Preparar los datos con shuffling
-    # # train_df = prepare_drl_training_data_sklearn(train_df)
-
+    # Dividir los datos en entrenamiento y prueba sin mezclar
+    train_size = int(len(df) * 0.7)  # Usar el 80% para entrenamiento
+    train_df = df[:train_size]       # Datos de entrenamiento (ordenados temporalmente)
+    test_df = df[train_size:]   
     # # # Entrenar el modelo con los datos de entrenamiento
-    # # best_params = optimize_hyperparameters(train_df,study_name="a2c_optimizationGBPUSD15m", n_trials=25)
-    # # model = train_a2c_with_best_params(train_df, best_params,model_path="a2c_GBPUSD_15min.zip")
+    best_params = optimize_hyperparameters(train_df,study_name="a2c_optimizationGBPUSD15mPPO", n_trials=15)
+    model = train_a2c_with_best_params(train_df, best_params,model_path="a2c_GBPUSD_15minPPO.zip")
+    test_a2c_model(model,samples_200_to_100,nombre="test_plot_GBPUSD_15MINPPO.png")
+    evaluate_with_multiple_seeds_and_batches(model, test_df, excel_path="test_results_GPBUSD_15MINPPO.xlsx", num_seeds=10, batch_size=3000) 
 
-    # # #model = A2C.load(r"C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\a2c_model.zip", device="cpu")
-    # # metrics = test_and_validate_model(model, test_df, results_csv="test_results_GBPUSD_15min.csv")
-    # # print("Final Balance GBPUSD 15min:", metrics['Final Balance'])
+    file_path = r'C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\dataset normalized\EURUSD_15min_NORMALIZED_normalized'
+    df = pd.read_csv(file_path, sep=';')
 
-    # # # Cargar los datos GBPUSD
-    # # # Cargar los datos
-    # # file_path = r'C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\dataset normalized\EURUSD_15min_NORMALIZED_normalized'
-    # # df = pd.read_csv(file_path, sep=';')
-
-    # # Dividir los datos en entrenamiento y prueba sin mezclar
-    # train_size = int(len(df) * 0.7)  # Usar el 80% para entrenamiento
-    # train_df = df[:train_size]       # Datos de entrenamiento (ordenados temporalmente)
-    # test_df = df[train_size:]        
-
-
-    # # Preparar los datos con shuffling
-    # train_df = prepare_drl_training_data_sklearn(train_df)
-
+    # Dividir los datos en entrenamiento y prueba sin mezclar
+    train_size = int(len(df) * 0.7)  # Usar el 80% para entrenamiento
+    train_df = df[:train_size]       # Datos de entrenamiento (ordenados temporalmente)
+    test_df = df[train_size:]   
     # # Entrenar el modelo con los datos de entrenamiento
-    # best_params = optimize_hyperparameters(train_df, study_name="a2c_optimization_eurusd15min",n_trials=20)
-    # model = train_a2c_with_best_params(train_df, best_params,model_path="a2c_EURUSD_15min.zip")
-
-    # #model = A2C.load(r"C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\a2c_model.zip", device="cpu")
-    # metrics = test_and_validate_model(model, test_df, results_csv="test_results_EURUSD_15min.csv")
-    # print("Final Balance: EURUSD 15 min", metrics['Final Balance'])
-
+    best_params = optimize_hyperparameters(train_df, study_name="a2c_optimization_eurusd15minPPO",n_trials=15)
+    model = train_a2c_with_best_params(train_df, best_params,model_path="a2c_EURUSD_15min.zip")
+    test_a2c_model(model,samples_200_to_100,nombre="test_plot_GBPUSD_15MINPPO.png")
+    evaluate_with_multiple_seeds_and_batches(model, test_df, excel_path="test_results_GPBUSD_15MINPPO.xlsx", num_seeds=10, batch_size=3000) 
 

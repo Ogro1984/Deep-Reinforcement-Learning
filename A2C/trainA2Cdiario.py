@@ -259,7 +259,7 @@ if __name__ == '__main__':
             #self.observation_space = Box(low=0, high=1, shape=(5,), dtype=np.float32)  # Espacio de observaciones
             self.render_mode = render_mode  # Modo de renderización
             self.action_history = []  # Historial de acciones
-            self.observation_space = Box(low=0, high=1, shape=(7,), dtype=np.float32)
+            self.observation_space = Box(low=0, high=1, shape=(12,), dtype=np.float32)
             self.reward = 0  # Inicializar la recompensa
             self.accumulador= 0  # Inicializar el acumulador
             self.accion_anterior=3
@@ -270,9 +270,14 @@ if __name__ == '__main__':
                 self.df.iloc[self.current_step]['Close'],  # Precio de cierre escalado
                 self.df.iloc[self.current_step]['Volume'],# Volumen escalado
                 self.df.iloc[self.current_step]['diff_to_mean'],  # Precio de cierre escalado
+                self.df.iloc[self.current_step]['mean_close'],  # Precio de cierre escalado
                 self.df.iloc[self.current_step]['mean_volume'],  # Precio de cierre escalado
-                self.df.iloc[self.current_step]['Close_Filtrado_Wavelet'],
-                self.df.iloc[self.current_step]['ATR'],
+                self.df.iloc[self.current_step]['relative_volume'],  # Volumen relativo
+                self.df.iloc[self.current_step]['Close_Filtrado_Wavelet'],  # Precio de cierre filtrado por wavelet
+                self.df.iloc[self.current_step]['RSI'],  # Índice de fuerza relativa (RSI)
+                self.df.iloc[self.current_step]['MACD'],  # MACD
+                self.df.iloc[self.current_step]['MACD_Signal'],  # Señal del MACD
+                self.df.iloc[self.current_step]['TRIX'],  # TRIX
                 self.net_worth,  # Patrimonio neto
                 #self.reward,
                 #self.balance / self.initial_balance,  # Balance relativo al balance inicial
@@ -400,6 +405,7 @@ if __name__ == '__main__':
         max_grad_norm = trial.suggest_float('max_grad_norm', 0.3, 1.0)
         gae_lambda = trial.suggest_float('gae_lambda', 0.8, 1.0)
         n_steps = trial.suggest_int('n_steps', 5, 2048, log=True)
+        #clip_range = trial.suggest_float('clip_range', 0.1, 0.4)  # Agregar rango de clipping
         
         train_env = StockTradingEnv15min(train_df)
         vec_env = DummyVecEnv([lambda: train_env])
@@ -415,7 +421,7 @@ if __name__ == '__main__':
 
         model = A2C('MlpPolicy', vec_env, learning_rate=learning_rate, gamma=gamma,
                     ent_coef=ent_coef, vf_coef=vf_coef, max_grad_norm=max_grad_norm,
-                    gae_lambda=gae_lambda, n_steps =n_steps, verbose=1,device="cpu")
+                    gae_lambda=gae_lambda, n_steps =n_steps,verbose=1,device="cpu")
 
        
         # from sklearn.model_selection import train_test_split
@@ -432,7 +438,7 @@ if __name__ == '__main__':
             raise optuna.exceptions.TrialPruned()
       
 
-        reward = evaluate_model_min(model, vec_env, train_df,sample_size=500)
+        reward = evaluate_model_min(model, vec_env, train_df,sample_size=1000)
         print ("punga 4")
 
 
@@ -921,99 +927,48 @@ if __name__ == '__main__':
 
 
     # Cargar los datos EURJPY
-    file_path = r'C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\dataset normalized\EURJPY_15min_NORMALIZED_normalized'
+    file_path = r'C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\dataset normalized\EURJPY_D1_NORMALIZED_normalized'
     df = pd.read_csv(file_path, sep=';')
 
     # Dividir los datos en entrenamiento y prueba sin mezclar
-    train_size = int(len(df) * 0.9)  # Usar el 80% para entrenamiento
+    train_size = int(len(df) * 0.7)  # Usar el 80% para entrenamiento
     train_df = df[:train_size]       # Datos de entrenamiento (ordenados temporalmente)
     test_df = df[train_size:]        
 
-
-    # Preparar los datos con shuffling
-    train_df = prepare_drl_training_data_sklearn(train_df)
-    # Hiperparámetros óptimos
-    # best_params = {
-    #                 'learning_rate': 8.603582509594346e-05,
-    #                 'gamma': 0.9831301691926517,
-    #                 'ent_coef': 2.7537065089483735e-07,
-    #                 'vf_coef': 0.7997236244404522,
-    #                 'max_grad_norm': 0.4466393228219806,
-    #                 'gae_lambda': 0.9119112512928644,
-    #                 'n_steps': 22
-    #             }
-
-    best_params = {
-    'learning_rate': 2.0447259257333886e-05,
-    'gamma': 0.832858822603956,
-    'ent_coef': 0.002674526994108215,
-    'vf_coef': 0.9065544266957681,
-    'max_grad_norm': 0.841000642511387,
-    'gae_lambda': 0.905226852376965,
-    'n_steps': 21
-}
-
     # Entrenar el modelo con los datos de entrenamiento
-    #best_params = optimize_hyperparameters(train_df,study_name='a2ceurjpy15min_4', n_trials=5)
-    
-    
-    
-    
-    
-    
-   #model = train_a2c_with_best_params(train_df, best_params,total_timesteps=10000,model_path="a2c_eurjpy_15MIN333.zip")
+    best_params = optimize_hyperparameters(train_df,study_name='eurjpy_D1_A2C', n_trials=15)
+    model = train_a2c_with_best_params(train_df, best_params,total_timesteps=10000,model_path="a2c_eurjpy_D1A2C.zip")
 
-    model = A2C.load(r"C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\a2c_eurjpy_15MIN333.zip", device="cpu")
-    samples_200_to_100 = test_df[-200:-100]
-    test_a2c_model(model,samples_200_to_100,nombre="test_plot_eurjpy_15MIN3333la200a100.png")
-    #metrics = test_and_validate_model(model, test_df, results_csv="test_results_eurjpy_15MIN.csv")
-    #print("Final Balance EURJPY 15min:", metrics['Final Balance'])
-    #evaluate_with_multiple_seeds_and_batches(model, test_df, excel_path="test_results_eurjpy_15MIN.xlsx", num_seeds=5, batch_size=3000) 
+    #model =PPO.load(r"C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\a2c_eurjpy_15MIN333.zip", device="cpu")
+    samples_200_to_100 = test_df[-300:-100]
+    test_a2c_model(model,samples_200_to_100,nombre="test_plot_eurjpy_D1_A2C.png")
+    evaluate_with_multiple_seeds_and_batches(model, test_df, excel_path="test_results_eurjpy_D1A2C.xlsx", num_seeds=10, batch_size=3000) 
 
+    file_path = r'C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\dataset normalized\GBPUSD_D1_NORMALIZED_normalized'
+    df = pd.read_csv(file_path, sep=';')
 
+    # Dividir los datos en entrenamiento y prueba sin mezclar
+    train_size = int(len(df) * 0.7)  # Usar el 80% para entrenamiento
+    train_df = df[:train_size]       # Datos de entrenamiento (ordenados temporalmente)
+    test_df = df[train_size:]
+    samples_200_to_100 = test_df[-300:-100]   
+    # # # Entrenar el modelo con los datos de entrenamientoc
+    best_params = optimize_hyperparameters(train_df,study_name="A2C_optimizationGBPUSD_D1_A2C", n_trials=15)
+    model = train_a2c_with_best_params(train_df, best_params,model_path="A2C_GBPUSD_D1A2C.zip")
+    test_a2c_model(model,samples_200_to_100,nombre="test_plot_GBPUSD_D1A2C.png")
+    evaluate_with_multiple_seeds_and_batches(model, test_df, excel_path="test_results_GPBUSD_D1A2C.xlsx", num_seeds=10, batch_size=3000) 
 
-    # # Cargar los datos GBPUSD
-    # # Cargar los datos
-    # file_path = r'C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\dataset normalized\GBPUSD_15min_NORMALIZED_normalized'
-    # df = pd.read_csv(file_path, sep=';')
+    file_path = r'C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\dataset normalized\EURUSD_D1_NORMALIZED_normalized'
+    df = pd.read_csv(file_path, sep=';')
 
-    # # Dividir los datos en entrenamiento y prueba sin mezclar
-    # train_size = int(len(df) * 0.7)  # Usar el 80% para entrenamiento
-    # train_df = df[:train_size]       # Datos de entrenamiento (ordenados temporalmente)
-    # test_df = df[train_size:]        
-
-
-    # # # Preparar los datos con shuffling
-    # # train_df = prepare_drl_training_data_sklearn(train_df)
-
-    # # # Entrenar el modelo con los datos de entrenamiento
-    # # best_params = optimize_hyperparameters(train_df,study_name="a2c_optimizationGBPUSD15m", n_trials=25)
-    # # model = train_a2c_with_best_params(train_df, best_params,model_path="a2c_GBPUSD_15min.zip")
-
-    # # #model = A2C.load(r"C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\a2c_model.zip", device="cpu")
-    # # metrics = test_and_validate_model(model, test_df, results_csv="test_results_GBPUSD_15min.csv")
-    # # print("Final Balance GBPUSD 15min:", metrics['Final Balance'])
-
-    # # # Cargar los datos GBPUSD
-    # # # Cargar los datos
-    # # file_path = r'C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\dataset normalized\EURUSD_15min_NORMALIZED_normalized'
-    # # df = pd.read_csv(file_path, sep=';')
-
-    # # Dividir los datos en entrenamiento y prueba sin mezclar
-    # train_size = int(len(df) * 0.7)  # Usar el 80% para entrenamiento
-    # train_df = df[:train_size]       # Datos de entrenamiento (ordenados temporalmente)
-    # test_df = df[train_size:]        
-
-
-    # # Preparar los datos con shuffling
-    # train_df = prepare_drl_training_data_sklearn(train_df)
-
+    # Dividir los datos en entrenamiento y prueba sin mezclar
+    train_size = int(len(df) * 0.7)  # Usar el 80% para entrenamiento
+    train_df = df[:train_size]       # Datos de entrenamiento (ordenados temporalmente)
+    test_df = df[train_size:] 
+    samples_200_to_100 = test_df[-300:-100]  
     # # Entrenar el modelo con los datos de entrenamiento
-    # best_params = optimize_hyperparameters(train_df, study_name="a2c_optimization_eurusd15min",n_trials=20)
-    # model = train_a2c_with_best_params(train_df, best_params,model_path="a2c_EURUSD_15min.zip")
-
-    # #model = A2C.load(r"C:\Users\cyber\Documents\Deep Learning\Deep Reinforcement Learning\A2C\a2c_model.zip", device="cpu")
-    # metrics = test_and_validate_model(model, test_df, results_csv="test_results_EURUSD_15min.csv")
-    # print("Final Balance: EURUSD 15 min", metrics['Final Balance'])
-
+    best_params = optimize_hyperparameters(train_df, study_name="a2c_optimization_eurusdD1A2C",n_trials=15)
+    model = train_a2c_with_best_params(train_df, best_params,model_path="A2C_EURUSD_D1.zip")
+    test_a2c_model(model,samples_200_to_100,nombre="test_plot_EURUSD_D1A2C.png")
+    evaluate_with_multiple_seeds_and_batches(model, test_df, excel_path="test_results_eurusd_D1A2C.xlsx", num_seeds=10, batch_size=3000) 
 
